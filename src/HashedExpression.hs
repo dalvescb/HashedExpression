@@ -32,7 +32,7 @@ import Debug.Trace
 
 Here we can turn debug on and off with one variable.  mt is a function to apply a trace, but only if debug is on.
 -}
-skipDebug = True
+skipDebug = False
 
 mt x y =
     if skipDebug

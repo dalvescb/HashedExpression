@@ -16,7 +16,9 @@ import Test.QuickCheck hiding (scale)
 
 -- TODO run tests? or anything really
 main = do
-    let x = var "x"
-        y = var "y"
-        z = exp(x + sin(y))
-    print $ diff ["x"] z
+    let x = var1d 10 "x"
+        y = var1d 10 "y"
+--        z = exp ( 1 * x + sin y)
+        z = 2 `scale` x
+    print $ simplify z
+--    print $ diff ["x"] z

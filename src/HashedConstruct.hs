@@ -74,7 +74,7 @@ instance Eq Construct where
 
 -}
 instance Num Construct where
-    negate x e =
+    negate x = \e ->
         let (e', x') = x e
          in addEdge e' $ Op (getDimE e' x') Neg [x']
     (+) x y e =
