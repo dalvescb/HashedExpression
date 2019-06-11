@@ -54,6 +54,7 @@ concatC [] e = (e, [])
 
 Map this over nodes found in the existing graph.  Used by HashedMatch.
 -}
+sourceNode :: Int -> Internal -> (Internal, Int)
 sourceNode n e =
     case I.lookup n e of
         Just _ -> (e, n)

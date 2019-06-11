@@ -59,6 +59,7 @@ import Debug.Trace
 {-
 
 -}
+tt :: String -> (Internal, Node) -> (Internal, Node)
 tt description en =
     if skipDebug
         then en
@@ -69,6 +70,7 @@ tt description en =
                      "HS.simplify found cycle at " ++
                      description ++ " " ++ show x ++ " " ++ show en
 
+ttall :: String -> (Internal, Node) -> (Internal, Node)
 ttall description en =
     case hasCycles en of
         [] -> trace description $ en `seq` trace (pretty en) en
@@ -137,6 +139,7 @@ simp1 =
 {-
 
 -}
+simplifyE :: String -> Expression -> Expression
 simplifyE dbg (Expression n e) =
     let (e', n') = simplify' (e, n)
      in mt (dbg ++ " " ++ pretty (e, n) ++ pretty (e', n')) $ Expression n' e'
@@ -153,6 +156,7 @@ simplify' (e, n) = e `deepseq` sub 1000 n $ simplify'' (e, n)
             then (e, n) {- mt ("simplify'ed "++pretty (e,n))-}
             else sub (iter - 1) n $ simplify'' (e, n)
 
+simpRewrite :: (ExpressionEdge -> ExpressionEdge) -> (Internal, Node) -> (Internal, Node)
 simpRewrite reWrite (e, n) --   simpRewrite' reWrite $ simpRewrite' negRelIdx (e,n)
  =
     let a = tt "negRelIdx" $ simpRewrite' negRelIdx $ tt "inputRelIdx" (e, n)
@@ -164,6 +168,7 @@ negRelIdx (RelElem idx b o)
     | idx >= 0 = RelElem (-idx - 1) b o
 negRelIdx x = x
 
+simpRewrite' :: (ExpressionEdge -> ExpressionEdge) -> (Internal, Node) -> (Internal, Node)
 simpRewrite' reWrite (e, n) = sub 1000 n $ simpRewrite'' reWrite (e, n)
   where
     sub 0 _oldN (e, n) =
@@ -176,13 +181,14 @@ simpRewrite' reWrite (e, n) = sub 1000 n $ simpRewrite'' reWrite (e, n)
             else let (e', n') = simpRewrite'' reWrite (e, n)
                   in tt ("sub recurse " ++ show (n', n, e) ++ "\n::") $
                      sub (iter - 1) n (e', n')
-
-simplify'' (e, n) = (simpRewrite'' id) (e, n)
+simplify'' :: (Internal, Node) -> (Internal, Node)
+simplify'' (e, n) = simpRewrite'' id (e, n)
 
 {-
 
 Only reachable nodes are rewritten.
 -}
+simpRewrite'' :: (ExpressionEdge -> ExpressionEdge) -> (Internal, Node) -> (Internal, Node)
 simpRewrite'' reWrite (exprs, node)
   -- check for edge which should be rewritten
     | Just edge <- I.lookup node exprs
@@ -706,8 +712,10 @@ simpRewrite'' _ x = tt "simpRewrite'' fallthrough" x
 {-
 
 -}
+constExpr :: Expression -> Maybe Double
 constExpr (Expression n e) = constExpr' e n
 
+constExpr' :: Internal -> Node -> Maybe Double
 constExpr' e n =
     let (e', n') = tt "simp for constExpr" $ simplify' (e, n)
      in case I.lookup n' e' of
@@ -721,6 +729,7 @@ constExpr' e n =
 {-
 
 -}
+isDeepZero :: Internal -> Node -> Bool
 isDeepZero exprs node =
     case I.lookup node exprs of
         Just (Const _ 0) -> True
