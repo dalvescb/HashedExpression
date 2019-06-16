@@ -234,11 +234,11 @@ Apply the first rule from a list which applies to the head node.
 -- FIXME  this is recursive, so we better know it is confluent or at least that it terminates.
 -}
 applyOne ::
-       (Internal, Node)
+       (Internal, Node) -- (IntMap ExpressionEdge, Int)
     -> [(GuardedPattern, WithHoles)]
     -> Maybe (Internal, Node)
 applyOne (e, n) ((GP pattern condition, replacement):rules)
-    | Just found <- isMatch e pattern n
+    | Just found <- isMatch e pattern n -- if match the pattern, and the condition is satisfied --> replace ?
     , condition e found = Just $ apply (getDimE e n) found e replacement
     | otherwise = applyOne (e, n) rules
 applyOne _ [] = Nothing

@@ -19,6 +19,6 @@ main = do
     let x = var1d 10 "x"
         y = var1d 10 "y"
 --        z = exp ( 1 * x + sin y)
-        z = 2 `scale` x
+        z = (x + y) + (y + x)
+    print $ z
     print $ simplify z
---    print $ diff ["x"] z
