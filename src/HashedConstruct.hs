@@ -54,6 +54,7 @@ concatC [] e = (e, [])
 
 Map this over nodes found in the existing graph.  Used by HashedMatch.
 -}
+sourceNode :: Int -> Internal -> (Internal, Int)
 sourceNode n e =
     case I.lookup n e of
         Just _ -> (e, n)
@@ -73,7 +74,7 @@ instance Eq Construct where
 
 -}
 instance Num Construct where
-    negate x e =
+    negate x = \e ->
         let (e', x') = x e
          in addEdge e' $ Op (getDimE e' x') Neg [x']
     (+) x y e =
@@ -108,6 +109,7 @@ instance Fractional Construct where
 {-
 
 -}
+fun1 :: OpId -> (Internal -> (Internal, Node)) -> Internal -> (Internal, Node)
 fun1 op x e =
     let (e', x') = x e
      in if Dim0 == getDimE e' x'
@@ -132,12 +134,15 @@ instance Floating Construct where
     acosh = fun1 Acosh
     asinh = fun1 Asinh
 
+getDimC :: (Internal -> (a, Node)) -> Internal -> Dims
 getDimC x exprs = getDimE exprs (snd $ x exprs)
 
+scaleX :: Double -> (Internal -> (a, Node)) -> Internal -> (Internal, Node)
 scaleX d x e =
     let (e1, dN) = addEdge e $ Const Dim0 d
      in genProd e1 [dN, snd $ x e]
 
+mkConst :: Dims -> Double -> Internal -> (Internal, Node)
 mkConst dims d e = addEdge e $ Const dims d
 
 {-
@@ -162,20 +167,21 @@ prodE xs =
                 [x] -> (e', x)
                 _ -> addEdge e' $ Op (getDimE e' x') Prod $ nodeSort' e' xs'
 
-sumO, prodO :: (Internal -> (Internal, [Node])) -> Construct
+sumO :: (Internal -> (Internal, [Node])) -> Construct
 sumO f e =
     let (e', ns@(n1:_)) = f e
      in case ns of
             [x] -> (e', x)
             _ -> addEdge e' $ Op (getDimE e' n1) Sum $ nodeSort' e' ns
 
+prodO :: (Internal -> (Internal, [Node])) -> Construct
 prodO f e =
     let (e', ns@(n1:_)) = f e
      in case ns of
             [x] -> (e', x)
             _ -> addEdge e' $ Op (getDimE e' n1) Prod $ nodeSort' e' ns
 
-sumN, prodN :: (Internal, [Node]) -> (Internal, Node)
+sumN :: (Internal, [Node]) -> (Internal, Node)
 sumN (e, ns@(n1:_)) =
     case ns of
         [x] -> (e, x)
@@ -183,6 +189,7 @@ sumN (e, ns@(n1:_)) =
 sumN (e, []) = error $ "sumN [] " ++ show e
 
 -- CKA: if we removed the dims from Zeros, we could determine the dims from context, and not return an error here
+prodN :: (Internal, [Node]) -> (Internal, Node)
 prodN (e, ns@(n1:_)) =
     case ns of
         [x] -> (e, x)

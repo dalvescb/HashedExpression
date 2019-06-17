@@ -59,6 +59,7 @@ import Debug.Trace
 {-
 
 -}
+tt :: String -> (Internal, Node) -> (Internal, Node)
 tt description en =
     if skipDebug
         then en
@@ -69,6 +70,7 @@ tt description en =
                      "HS.simplify found cycle at " ++
                      description ++ " " ++ show x ++ " " ++ show en
 
+ttall :: String -> (Internal, Node) -> (Internal, Node)
 ttall description en =
     case hasCycles en of
         [] -> trace description $ en `seq` trace (pretty en) en
@@ -137,6 +139,7 @@ simp1 =
 {-
 
 -}
+simplifyE :: String -> Expression -> Expression
 simplifyE dbg (Expression n e) =
     let (e', n') = simplify' (e, n)
      in mt (dbg ++ " " ++ pretty (e, n) ++ pretty (e', n')) $ Expression n' e'
@@ -153,6 +156,7 @@ simplify' (e, n) = e `deepseq` sub 1000 n $ simplify'' (e, n)
             then (e, n) {- mt ("simplify'ed "++pretty (e,n))-}
             else sub (iter - 1) n $ simplify'' (e, n)
 
+simpRewrite :: (ExpressionEdge -> ExpressionEdge) -> (Internal, Node) -> (Internal, Node)
 simpRewrite reWrite (e, n) --   simpRewrite' reWrite $ simpRewrite' negRelIdx (e,n)
  =
     let a = tt "negRelIdx" $ simpRewrite' negRelIdx $ tt "inputRelIdx" (e, n)
@@ -164,6 +168,7 @@ negRelIdx (RelElem idx b o)
     | idx >= 0 = RelElem (-idx - 1) b o
 negRelIdx x = x
 
+simpRewrite' :: (ExpressionEdge -> ExpressionEdge) -> (Internal, Node) -> (Internal, Node)
 simpRewrite' reWrite (e, n) = sub 1000 n $ simpRewrite'' reWrite (e, n)
   where
     sub 0 _oldN (e, n) =
@@ -176,19 +181,19 @@ simpRewrite' reWrite (e, n) = sub 1000 n $ simpRewrite'' reWrite (e, n)
             else let (e', n') = simpRewrite'' reWrite (e, n)
                   in tt ("sub recurse " ++ show (n', n, e) ++ "\n::") $
                      sub (iter - 1) n (e', n')
-
-simplify'' (e, n) = (simpRewrite'' id) (e, n)
+simplify'' :: (Internal, Node) -> (Internal, Node)
+simplify'' (e, n) = simpRewrite'' id (e, n)
 
 {-
 
 Only reachable nodes are rewritten.
 -}
+simpRewrite'' :: (ExpressionEdge -> ExpressionEdge) -> (Internal, Node) -> (Internal, Node)
 simpRewrite'' reWrite (exprs, node)
   -- check for edge which should be rewritten
     | Just edge <- I.lookup node exprs
     , new <- reWrite edge
-    , new /= edge =
-        tt ("reWrite " ++ show new ++ "<-" ++ show edge) $ addEdge exprs new
+    , new /= edge = tt ("reWrite " ++ show new ++ "<-" ++ show edge) $ addEdge exprs new
   -- apply simple rewrites
     | Just ei <- applyOne (exprs, node) simp1 = mt "simp1 has been used" ei
   -- * sum with one summand collapses
@@ -201,7 +206,7 @@ simpRewrite'' reWrite (exprs, node)
   -- * if a product contains any products, collapse them into one product
   -- - Prod(x,Prod(y,z)) -> Prod(x,y,z)
     | Just (Op Dim0 Prod inputs) <- I.lookup node exprs
-    , List.or $ map ((Nothing /=) . M.prod exprs) inputs =
+    , any ((Nothing /=) . M.prod exprs) inputs =
         let collapsed = concatMap (collapse exprs Prod) inputs
             (exprs', sorted) = nodeSort (exprs, collapsed)
          in tt "collapse prods" $ addEdge exprs' $ Op Dim0 Prod sorted
@@ -209,23 +214,19 @@ simpRewrite'' reWrite (exprs, node)
   -- * if a product contains a zero, collapse it
   -- - Prod(x,0,y) -> 0
     | Just (Op Dim0 Prod inputs) <- I.lookup node exprs
-    , 0 <
-          length
-              (filter ((Just (Const Dim0 0) ==) . flip I.lookup exprs) inputs) =
+    , 0 < length (filter ((Just (Const Dim0 0) ==) . flip I.lookup exprs) inputs) =
         tt "prod ..0.." $ addEdge exprs (Const Dim0 0)
   -- FIXME: duplicate?
   -- * remove product containing a zero
   -- - Prod(x,y,0) -> 0
     | Just (Op Dim0 Prod inputs) <- I.lookup node exprs
-    , [] /= filter (isDeepZero exprs) inputs =
-        tt "prod ..0.." $ 0 exprs -- addEdge exprs $ Const Dim0 0
+    , [] /= filter (isDeepZero exprs) inputs = tt "prod ..0.." $ 0 exprs -- addEdge exprs $ Const Dim0 0
   -- * if a product contains two or more constants, collapse them into one constant
   -- - Prod(s1,s2,x) -> let s3 = s1 * s2 in s3 * x
     | Just (Op Dim0 Prod inputs) <- I.lookup node exprs
     , 1 < length (filter ((Nothing /=) . M.const exprs) inputs) =
         tt "pre-2 consts in prod" $
-        let (consts, nonconsts) =
-                List.partition ((Nothing /=) . M.const exprs) inputs
+        let (consts, nonconsts) = List.partition ((Nothing /=) . M.const exprs) inputs
             newC =
                 mkConst Dim0 $
                 product $
@@ -236,22 +237,15 @@ simpRewrite'' reWrite (exprs, node)
                               _ -> error "spm") .
                      M.const exprs)
                     consts
-         in tt "2 consts in prod" $
-            (prodE (newC : (map sourceNode nonconsts))) exprs
+         in tt "2 consts in prod" $ (prodE (newC : (map sourceNode nonconsts))) exprs
   {--}
   -- * if a product contains a constant 1 eliminate it
   -- - Prod(1,x,y) -> Prod(x,y)
     | Just (Op Dim0 Prod inputs) <- I.lookup node exprs
-    , 0 <
-          length
-              (filter ((Just (Const Dim0 1) ==) . flip I.lookup exprs) inputs) =
-        let (ones, nonones) =
-                List.partition
-                    ((Just (Const Dim0 1) ==) . flip I.lookup exprs)
-                    inputs
+    , 0 < length (filter ((Just (Const Dim0 1) ==) . flip I.lookup exprs) inputs) =
+        let (ones, nonones) = List.partition ((Just (Const Dim0 1) ==) . flip I.lookup exprs) inputs
          in tt ("prod consts " ++
-                concatMap (pretty . (exprs, )) ones ++
-                " not " ++ concatMap (pretty . (exprs, )) nonones) $
+                concatMap (pretty . (exprs, )) ones ++ " not " ++ concatMap (pretty . (exprs, )) nonones) $
             (prodE (map sourceNode nonones)) exprs
   --
   -- * distribute product inside sum
@@ -270,11 +264,7 @@ simpRewrite'' reWrite (exprs, node)
             (sums, notSums) = List.partition isSum args
             lists = cartProd $ map getArgs sums
          in tt "distribute prod inside sum" $
-            (sumE
-                 [ prodE (map sourceNode $ nodeSort' exprs $ l ++ notSums)
-                 | l <- lists
-                 ])
-                exprs
+            (sumE [prodE (map sourceNode $ nodeSort' exprs $ l ++ notSums) | l <- lists]) exprs
   --
   -- * sum with no summands
   -- - Sum() -> error
@@ -288,8 +278,7 @@ simpRewrite'' reWrite (exprs, node)
     , 1 < (length $ filter (/= Nothing) reImInputs) =
         tt "pre-complex sum" $
         let inputPair = zip reImInputs inputs {-mt (unlines $ map (curry pretty exprs) inputs) $-}
-            (fromReImConstructor, others) =
-                List.partition ((/= Nothing) . fst) inputPair
+            (fromReImConstructor, others) = List.partition ((/= Nothing) . fst) inputPair
             (reals, imags) =
                 unzip $
                 map
@@ -305,22 +294,17 @@ simpRewrite'' reWrite (exprs, node)
             (sumE ((reSum +: imSum) : (map (sourceNode . snd) others))) exprs
   -- * move Re Im inside projections and injections and sums
   -- - Re ( Proj ( x ) ) -> Proj ( Re ( x ) )
-    | Just (ss, x) <- (M.xRe `o` M.proj) exprs node =
-        tt ("Re . proj") $ (projSS ss $ xRe x) exprs
+    | Just (ss, x) <- (M.xRe `o` M.proj) exprs node = tt ("Re . proj") $ (projSS ss $ xRe x) exprs
   -- - Im ( Proj ( x ) ) -> Proj ( Im ( x ) )
     | Just (ss, x) <- (M.xIm `o` M.proj) exprs node = (projSS ss $ xIm x) exprs
   -- - Re ( Inject ( x ) ) -> Inject ( Re ( x ) )
-    | Just (ss, x) <- (M.xRe `o` M.inject) exprs node =
-        (injectSS ss $ xRe x) exprs
+    | Just (ss, x) <- (M.xRe `o` M.inject) exprs node = (injectSS ss $ xRe x) exprs
   -- - Im ( Inject ( x ) ) -> Inject ( Im ( x ) )
-    | Just (ss, x) <- (M.xIm `o` M.inject) exprs node =
-        (injectSS ss $ xIm x) exprs
+    | Just (ss, x) <- (M.xIm `o` M.inject) exprs node = (injectSS ss $ xIm x) exprs
   -- - Re ( ( x +: y ) + ( z +: w ) ) -> Re ( x +: y ) + Re ( z +: w )
-    | Just inputs <- (M.xRe `o` M.sum) exprs node =
-        (sumE $ map xRe inputs) exprs
+    | Just inputs <- (M.xRe `o` M.sum) exprs node = (sumE $ map xRe inputs) exprs
   -- - Im ( ( x +: y ) + ( z +: w ) ) -> Im ( x +: y ) + Im ( z +: w )
-    | Just inputs <- (M.xIm `o` M.sum) exprs node =
-        (sumE $ map xIm inputs) exprs
+    | Just inputs <- (M.xIm `o` M.sum) exprs node = (sumE $ map xIm inputs) exprs
   --
   -- * pull scale outside any linear operation
   -- - f \in [Neg,RealPart,ImagPart,FT _, PFT _ _]
@@ -333,15 +317,13 @@ simpRewrite'' reWrite (exprs, node)
   -- * move scale inside sum
   -- - s *. Sum(x,y,z) -> Sum(s *. x, s *. y, s *. z)
     | Just (s, n) <- M.scale exprs node
-    , Just inputs <- M.sum exprs (snd $ n exprs) =
-        tt "scale inside sum" $ (sumE $ map (scale s) inputs) exprs
+    , Just inputs <- M.sum exprs (snd $ n exprs) = tt "scale inside sum" $ (sumE $ map (scale s) inputs) exprs
   --
   -- this rule is both in HashedComplexInstances and in simp
   -- * move scale inside +:
   -- - s *. ( x +: y ) -> ( (s *. x) +: (s *. y ) )
     | Just (s, n) <- M.scale exprs node
-    , Just (re, im) <- M.reIm exprs (snd $ n exprs) =
-        ((s `scale` re) +: (s `scale` im)) exprs
+    , Just (re, im) <- M.reIm exprs (snd $ n exprs) = ((s `scale` re) +: (s `scale` im)) exprs
   --}
   -- * if a sum contains any sums, collapse them into one sum
   -- - Sum(x,Sum(y,z)) -> Sum(x,y,z)
@@ -357,8 +339,7 @@ simpRewrite'' reWrite (exprs, node)
     | Just (Op _dims Sum inputs) <- I.lookup node exprs
     , 1 < length (filter ((Nothing /=) . M.const exprs) inputs) =
         tt "pre-2 consts in sum" $
-        let (consts, nonconsts) =
-                List.partition ((Nothing /=) . M.const exprs) inputs
+        let (consts, nonconsts) = List.partition ((Nothing /=) . M.const exprs) inputs
             newC =
                 mkConst Dim0 $
                 sum $
@@ -378,9 +359,7 @@ simpRewrite'' reWrite (exprs, node)
     , [] == nonZeros || nonZeros /= inputs =
         case nonZeros of
             [] -> tt "no nonzeros in sum" $ addEdge exprs $ Const dims 0
-            filtered ->
-                tt "remove zeros from sum" $
-                addEdge exprs $ Op dims Sum filtered
+            filtered -> tt "remove zeros from sum" $ addEdge exprs $ Op dims Sum filtered
   -- * turn complex products into real products
   -- - (x +: y) * (z +: w) -> (x*z - y*w) +: (x*w - y*z)
     | Just (Op _dims Prod inputs) <- I.lookup node exprs
@@ -402,13 +381,11 @@ simpRewrite'' reWrite (exprs, node)
   -- * pull sum out of left dot
   -- - (x + y) <.> z -> Sum(x <.> z, y <.> z)
     | Just (left, right) <- M.dot exprs node
-    , Just inputsL <- M.sum exprs (snd $ left exprs) =
-        tt "sum `dot` ..." $ (sumE $ [dot l right | l <- inputsL]) exprs
+    , Just inputsL <- M.sum exprs (snd $ left exprs) = tt "sum `dot` ..." $ (sumE $ [dot l right | l <- inputsL]) exprs
   -- * pull sum out of right dot
   -- - x <.> ( y + z) -> Sum(x <.> y, x <.> z)
     | Just (left, right) <- M.dot exprs node
-    , Just inputsR <- M.sum exprs (snd $ right exprs) =
-        tt "... `dot` sum" $ (sumE $ [dot left r | r <- inputsR]) exprs
+    , Just inputsR <- M.sum exprs (snd $ right exprs) = tt "... `dot` sum" $ (sumE $ [dot left r | r <- inputsR]) exprs
   --
   -- * combine identical terms in a sum
   -- - Sum(x,(-1) *. x,y) -> Sum(y)
@@ -428,8 +405,7 @@ simpRewrite'' reWrite (exprs, node)
                             Dim0 -> (mkConst Dim0 d) * (sourceNode theNode)
                             _ -> (mkConst Dim0 d) `scale` (sourceNode theNode)
             recombine [] = error "simplify.recombine []"
-         in tt "combine identical terms in a sum" $
-            (sumE $ map recombine grouped) e1
+         in tt "combine identical terms in a sum" $ (sumE $ map recombine grouped) e1
   -- * reverse vectors in dot product if any differentials are on the right
   -- - x . (f dy ) -> ( f dy ) . x
     | Just (left, right) <- M.dot exprs node
@@ -450,15 +426,13 @@ simpRewrite'' reWrite (exprs, node)
         tt "pushPop 1" $
         let (e1, left') = simplify' (left exprs)
             (e2, right') = simplify' (right e1)
-         in tt "pushPop 2" $
-            (sumO $ pushPop (sourceNode left') (sourceNode right')) e2
+         in tt "pushPop 2" $ (sumO $ pushPop (sourceNode left') (sourceNode right')) e2
   -- * reverse arguments of dot to sort, if neither contains a differential
   -- - x . y -> y . x (if x > y, and niether contains differential)
     | Just (left, right) <- M.dot exprs node
     , not $ uncurry HashedExpression.containsDifferential $ right exprs
     , not $ uncurry HashedExpression.containsDifferential $ left exprs
-    , left exprs > right exprs =
-        tt "dot no diff reverse" $ (dot right left) exprs
+    , left exprs > right exprs = tt "dot no diff reverse" $ (dot right left) exprs
   -- do adjoint of common-subexpression elimination for linear operators
   -- * simplify SCZ expression
   -- - SCZ (expr) [inputs] -> let expr' = simplify expr in SCZ (expr') [inputs]
@@ -467,8 +441,7 @@ simpRewrite'' reWrite (exprs, node)
     , sczN1 /= sczN -- simplification had an effect
      =
         let (sczE2, sczN2) = recreate (sczE1, sczN1)
-         in ttall ("oSCZ " ++ pretty (sczE2, sczN2)) $
-            addEdge exprs $ mkSCZ dims (Expression sczN2 sczE2) inputs
+         in ttall ("oSCZ " ++ pretty (sczE2, sczN2)) $ addEdge exprs $ mkSCZ dims (Expression sczN2 sczE2) inputs
   -- * move constant scaling of SCZ into SCZ expression to enable SCZ fusion,
   -- * and reduce computation downstream
   -- CKA:  It makes sense to move references to scalar values form the outer expression
@@ -484,8 +457,7 @@ simpRewrite'' reWrite (exprs, node)
   -- * eliminate SCZ with constant expressions
   -- - SCZ (c) [_] -> c
     | Just (Op dims (SCZ sczE) _) <- I.lookup node exprs
-    , Just c <- constExpr sczE =
-        tt ("mkConst " ++ show c) $ (mkConst dims c) exprs
+    , Just c <- constExpr sczE = tt ("mkConst " ++ show c) $ (mkConst dims c) exprs
   -- * eliminate SCZ that are the identity
   -- - SCZ[x](y) -> y
     | Just (Op _dims (SCZ (Expression sczN sczE)) [n]) <- I.lookup node exprs
@@ -508,12 +480,9 @@ simpRewrite'' reWrite (exprs, node)
             reMapVar (RelElem idx b o)
                 | Just newIdx <- I.lookup (-idx - 1) remap = RelElem newIdx b o
             reMapVar x = x
-            (sczE', sczN') =
-                tt "pre2-unused inputs" $
-                simpRewrite reMapVar $ tt "pre1-unused inputs" (sczE, sczN)
+            (sczE', sczN') = tt "pre2-unused inputs" $ simpRewrite reMapVar $ tt "pre1-unused inputs" (sczE, sczN)
             inputs' = onlyUsed inputs
-            onlyUsed =
-                map snd . filter (\(a, _b) -> a `elem` inputIdxs) . zip [0 ..]
+            onlyUsed = map snd . filter (\(a, _b) -> a `elem` inputIdxs) . zip [0 ..]
          in tt "remove unused inputs" $
             addEdge exprs $
             case inputs' of
@@ -533,8 +502,7 @@ simpRewrite'' reWrite (exprs, node)
                      Just _n -> (idxSCZNode, Just (sczE, args))
                      Nothing -> (idxSCZNode, Nothing)
              removeNonZeroOffsets x = x
-          in map removeNonZeroOffsets $
-             zip [0 ..] $ map (isSCZNode exprs) inputs
+          in map removeNonZeroOffsets $ zip [0 ..] $ map (isSCZNode exprs) inputs
   -- just the replaceable ones
     , subSCZs <- filter ((/= Nothing) . snd) justReplaceable
     , not $ null subSCZs =
@@ -557,11 +525,7 @@ simpRewrite'' reWrite (exprs, node)
                                  else error $ "HS.rewriteArgs " ++ show (a, b)) $
                     concatMap findNegRelElem $ depthFirst mergeE newTopN
              -- map of oldRE indices to new node numbers
-                assocNegOldIdxNewN =
-                    zip
-                        (map (\idx -> idx + maxUsed)
-                             oldIdxsOfReplaceableRelElems)
-                        newSubNs
+                assocNegOldIdxNewN = zip (map (\idx -> idx + maxUsed) oldIdxsOfReplaceableRelElems) newSubNs
              -- find the RelElems we will be replacing so we know which node numbers to look for
                 findNegRelElem (node, RelElem idx _b _o) =
                     case lookup idx assocNegOldIdxNewN of
@@ -583,9 +547,7 @@ simpRewrite'' reWrite (exprs, node)
                     Just idx -> idx
                     _ -> error "...sczs... node not found"
          -- the inputs which are not folded RelElems in the top-level and all lower inputs
-            keptInputs =
-                List.nub $
-                List.sort $ concat $ zipWith kI justReplaceable inputs
+            keptInputs = List.nub $ List.sort $ concat $ zipWith kI justReplaceable inputs
               where
                 kI (_idx, Nothing) arg = [arg]
                 kI (_idx, Just (_, args)) _ = args
@@ -595,23 +557,19 @@ simpRewrite'' reWrite (exprs, node)
                 kI (idx, Just (_, _args)) arg = [(arg, idx + maxUsed)]
                 kI _ _ = []
          -- *** unchecked assumption that inputs are all the same size as output
-         in tt "SCZ [...sczs...]" $
-            addEdge exprs $ mkSCZ dims (Expression newSCZN newSCZE) keptInputs
+         in tt "SCZ [...sczs...]" $ addEdge exprs $ mkSCZ dims (Expression newSCZN newSCZE) keptInputs
   -- * push sums into SCZ's so they are exposed to further simplifications
   -- - Sum(x,SCZ(f r0 r1)[y,z]) -> SCZ(r0 + f r1 r2)[x,y,z]
     | Just (Op dims Sum summands) <- I.lookup node exprs
     , summandSCZ <- map (isSCZNode exprs) summands
     , summandSCZDiff <-
-         filter ((/= Nothing) . fst) $
-         zip summandSCZ $
-         map (HashedExpression.containsDifferential exprs) summands
+         filter ((/= Nothing) . fst) $ zip summandSCZ $ map (HashedExpression.containsDifferential exprs) summands
     , not $ null $ drop 1 $ summandSCZDiff -- there are two SCZs
     , null $ drop 1 $ filter snd summandSCZDiff -- but at most 1 has a differential
      =
         tt "sum of SCZs" $
         -- get single list of all SCZ inputs
-        let gatheredInputs =
-                List.nub $ List.sort $ concatMap justArgs summandSCZ
+        let gatheredInputs = List.nub $ List.sort $ concatMap justArgs summandSCZ
             allArgs = zip gatheredInputs [0 ..]
         -- make map from old reIdxs to new reIdxs
             oldIdxToNew args idx =
@@ -624,25 +582,18 @@ simpRewrite'' reWrite (exprs, node)
                     else RelElem idx b o
             reRemap _ x = x
         -- remap relIdxs in separate SCZs, and merge them
-            (mergedE, newNs) =
-                mergeL'
-                    [ simpRewrite (reRemap args) en
-                    | (en, args) <- catMaybes summandSCZ
-                    ]
+            (mergedE, newNs) = mergeL' [simpRewrite (reRemap args) en | (en, args) <- catMaybes summandSCZ]
         -- add sum node
             (newE, newN) = simplify' $ addEdge mergedE $ Op Dim0 Sum newNs
         -- create new SCZ node
         -- *** unchecked assumption that inputs are all the same size as output
-            bigSCZ@(bigSCZE, bigSCZN) =
-                addEdge exprs $ mkSCZ dims (Expression newN newE) gatheredInputs
+            bigSCZ@(bigSCZE, bigSCZN) = addEdge exprs $ mkSCZ dims (Expression newN newE) gatheredInputs
          in if null $ filter (== Nothing) summandSCZ
        -- if there are no summands other than SCZs
                 then bigSCZ
        -- if there are other summands, create a new Sum node
-                else let nonSCZs =
-                             filter ((== Nothing) . isSCZNode exprs) summands
-                         (_, allSummands) =
-                             nodeSort (bigSCZE, bigSCZN : nonSCZs)
+                else let nonSCZs = filter ((== Nothing) . isSCZNode exprs) summands
+                         (_, allSummands) = nodeSort (bigSCZE, bigSCZN : nonSCZs)
                       in addEdge bigSCZE $ Op dims Sum allSummands
   -- * simplify SCZ if some inputs are constants
   -- - SCZ(f r0 r2)[x,c] -> SCZ(f r0 c)[x]
@@ -652,33 +603,23 @@ simpRewrite'' reWrite (exprs, node)
         tt "pre-SCZ [...consts...]" $
         let constIdxs = filter ((/= Nothing) . snd) consts
             inputIdxs = map fst $ filter ((== Nothing) . snd) consts
-            idxRemap =
-                I.fromList $
-                (zip inputIdxs (map Left [0 ..])) ++
-                (map (\(a, b) -> (a, Right b)) constIdxs)
+            idxRemap = I.fromList $ (zip inputIdxs (map Left [0 ..])) ++ (map (\(a, b) -> (a, Right b)) constIdxs)
          -- remap RelElems to input constants or remapped RelElems
             remap (RelElem idx b o)
-                | Just (Right (Just c)) <- I.lookup (-idx - 1) idxRemap =
-                    Const Dim0 c
-                | Just (Left newIdx) <- I.lookup (-idx - 1) idxRemap =
-                    RelElem newIdx b o
+                | Just (Right (Just c)) <- I.lookup (-idx - 1) idxRemap = Const Dim0 c
+                | Just (Left newIdx) <- I.lookup (-idx - 1) idxRemap = RelElem newIdx b o
             remap x = x
             (sczE', sczN') = simpRewrite remap (sczE, sczN) {- mt ("SCZ 1" ++ pretty (sczE,sczN) ++" - " ++ show idxRemap) $ -}
             inputs' {- mt (pretty (Expression sczN' sczE') ++" const in scz "++ pretty (Expression sczN sczE))
            $ -}
              = onlyUsed inputs
-            onlyUsed =
-                map snd . filter (\(a, _b) -> a `elem` inputIdxs) . zip [0 ..]
-            sczSimp@(Expression sczSimpN sczSimpE) =
-                simplifyE "sczConst" $ Expression sczN' sczE'
+            onlyUsed = map snd . filter (\(a, _b) -> a `elem` inputIdxs) . zip [0 ..]
+            sczSimp@(Expression sczSimpN sczSimpE) = simplifyE "sczConst" $ Expression sczN' sczE'
             result =
                 if null inputIdxs
                     then case I.lookup sczSimpN sczSimpE of
                              Just (Const Dim0 c) -> addEdge exprs $ Const Dim0 c
-                             _ ->
-                                 error $
-                                 "SCZ with no used nonconstant inputs is not constant " ++
-                                 pretty (exprs, node)
+                             _ -> error $ "SCZ with no used nonconstant inputs is not constant " ++ pretty (exprs, node)
                     else sczE' `seq` addEdge exprs $ mkSCZ dims sczSimp inputs'
          in tt "SCZ [...const...]" $ result
   -- * if no simplification was applied to this node, then simplify args
@@ -692,8 +633,7 @@ simpRewrite'' reWrite (exprs, node)
                      then nodeSort
                      else id) $
                 List.mapAccumR (curry $ simpRewrite' reWrite) exprs args
-         in tt ("simpRewrite recurse " ++ pretty (exprs, node) ++ " ") $
-            addEdge e $ Op dims op simpArgs
+         in tt ("simpRewrite recurse " ++ pretty (exprs, node) ++ " ") $ addEdge e $ Op dims op simpArgs
 --
 --
 {-  | Just (Op _dims Sum summands) <- I.lookup node exprs
@@ -706,8 +646,10 @@ simpRewrite'' _ x = tt "simpRewrite'' fallthrough" x
 {-
 
 -}
+constExpr :: Expression -> Maybe Double
 constExpr (Expression n e) = constExpr' e n
 
+constExpr' :: Internal -> Node -> Maybe Double
 constExpr' e n =
     let (e', n') = tt "simp for constExpr" $ simplify' (e, n)
      in case I.lookup n' e' of
@@ -721,6 +663,7 @@ constExpr' e n =
 {-
 
 -}
+isDeepZero :: Internal -> Node -> Bool
 isDeepZero exprs node =
     case I.lookup node exprs of
         Just (Const _ 0) -> True
