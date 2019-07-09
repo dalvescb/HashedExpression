@@ -7,9 +7,10 @@ module HashedHash where
 import qualified Data.IntMap.Strict as IM
 import HashedExpression hiding ((*), (+))
 
--- |
---
+-- | HasHash is a class which has something as input and has just operation
+-- input : a which is something
 class HasHash a where
+    -- hash is the operation of HasHash which gets "a" as input and return an Integer Number
     hash :: a -> Int
 
 -- | Helper hash functions, copy from HashedExpression
@@ -17,23 +18,48 @@ class HasHash a where
 moveBase :: Char -> Int -> Int
 moveBase c hash = hash * 40591 + fromEnum c
 
+-- Function for generating Hashed codes using the list of indices of arguments in the ExpressionMap
+-- Input : The list of indices of arguments in the ExpressionMap
+-- Output : An integer Hashed number based on the algorithm  below
+
+-- | Shape type:
+-- []        --> Return 0
+-- [n]       --> Returning the Head of the list which is an integer number
 argHash :: [Int] -> Int
+-- This is a recursive function which gets the head(arg) and tail(args) of the list separately,
+-- And then add up 31 to the head (which is an integer number) and multiply the output with the final result of
+-- recursively calling the function again.
 argHash (arg:args) = arg + 31 * argHash args
+-- Very last step of our recursively defined argHash function which return ZERO if the list if empty.
 argHash [] = 0
 
 rehash :: Int -> [Int]
 rehash x = x : [x + (241 + x * 251) * i | i <- [1 ..]]
 
 -- | HasHash instances
---
+
+-- | HasHash Internal
+-- This instance works when the input of the HasHaash class is in the form of  Internal, which is a type defined in
+-- Hashed Expression
 instance HasHash Internal where
+    -- Input : Shape of the Expression and the hashed Node Index
+    -- Output : Ineger number which is the result of mathematical operation below
     hash (shape, node) = hash node * (1 + argHash shape)
 
+-- | HasHash ET
+-- This instance works when the input of the HasHaash class is in the form of  ET, which is a type defined in
+-- Hashed Expression
 instance HasHash ET where
+    -- If the expression type is Real then return 423
     hash R = 423
+    -- If the expression type is Complex then return 451
     hash C = 451
+    -- If the expression type is Covector then return 269
     hash Covector = 269
 
+-- | HasHash Node
+-- This instance works when the input of the HasHaash class is in the form of  Node, which is a type defined in
+-- Hashed Expression
 instance HasHash Node where
     hash node =
         case node of
@@ -72,7 +98,9 @@ instance HasHash Node where
             Piecewise marks arg branches ->
                 (1 + argHash (foldr moveBase 0 (show marks) : arg : branches)) *
                 269
-            -- MARK: Rotate
+            -- MARK: If the node is Rotate then get amount of the rotation, as well as arg should be rotated then
+            -- generate the hash code based on the mathematical operation below
+            -- Note : Read the comment related to argHash function above this page
             Rotate amount arg -> (1 + argHash (arg : amount)) * 593
 
 -- |

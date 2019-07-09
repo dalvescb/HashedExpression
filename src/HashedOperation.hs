@@ -15,6 +15,8 @@ import HashedHash
 import HashedInner
 import HashedNode
 import HashedUtils
+
+-- Hide the operations that we are going to define here and load the new qualified version of Prelude
 import Prelude hiding
     ( (*)
     , (+)
@@ -258,7 +260,7 @@ instance {-# OVERLAPPABLE #-} Num a => AddableOp a where
 instance {-# OVERLAPPABLE #-} Num a => MultiplyOp a a a where
     (*) = times
 
---instance {-# OVERLAPPABLE #-} Num a => PowerOp a a a where
+--instance {-# OVERLAPPABLE #-} Num a => (^) a a a where
 --    (^) x y = x Prelude.^ y
 instance {-# OVERLAPPABLE #-} (Num a, Floating a) => NumOp a where
     sqrt = Prelude.sqrt

@@ -6,6 +6,7 @@
 
 module HashedInterp where
 
+import Data.Bits
 import Data.Array
 import Data.Complex
 import qualified Data.IntMap.Strict as IM
@@ -115,7 +116,7 @@ instance Evaluable Zero R Double where
                 Scale R arg1 arg2 ->
                     eval valMap (expZeroR mp arg1) *
                     eval valMap (expZeroR mp arg2)
-                Power x arg -> eval valMap (expZeroR mp arg) ^ x
+                Power x arg -> eval valMap (expZeroR mp arg)^  x
                 Div arg1 arg2 ->
                     eval valMap (expZeroR mp arg1) /
                     eval valMap (expZeroR mp arg2)
@@ -168,7 +169,7 @@ instance Evaluable Zero R Double where
                                     , let x = res1 ! (i, j, k)
                                     , let y = res2 ! (i, j, k)
                                     ]
-                        _ -> error "4D shape?"
+                  :q      _ -> error "4D shape?"
                 Piecewise marks conditionArg branchArgs ->
                     let cdt = eval valMap $ expZeroR mp conditionArg
                         branches = map (eval valMap . expZeroR mp) branchArgs
@@ -176,6 +177,8 @@ instance Evaluable Zero R Double where
                 _ ->
                     error
                         ("expression structure Scalar R is wrong " ++ prettify e)
+                -- Power x arg -> eval valMap (expZeroR mp arg)^  x
+                --Rotate x arg
         | otherwise = error "one r but shape is not [] ??"
 
 instance Evaluable Zero C (Complex Double) where

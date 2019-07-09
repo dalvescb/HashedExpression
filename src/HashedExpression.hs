@@ -74,11 +74,12 @@ class ElementType et
 class ElementType et =>
       NumType et
 
+class ElementType et =>
+      Addable et
+
 
 class DimensionType d
 
-class ElementType et =>
-      Addable et
 
 
 class (DimensionType d, Addable et, NumType s) =>
@@ -150,8 +151,9 @@ class ComplexRealOp r c | r -> c, c -> r where
 
 class InnerProductSpaceOp a b c | a b -> c where
     (<.>) :: a -> b -> c
-
+-- RotateOp class is used for defining the operations related to rotate.
 class RotateOp k a | a -> k where
+    --  Rotate operation which belong to RotateOp class and doing rotation.
     rotate :: k -> a -> a
 
 infixl 6 +, -
@@ -162,6 +164,7 @@ infixl 8 *., `scale`, <.>
 
 infix 8 ^
 
+-- Different kinds of Shape types used in Hashed Expression
 -- | Shape type:
 -- []        --> scalar
 -- [n]       --> 1D with size n
@@ -179,11 +182,14 @@ type ConditionArg = Int
 
 type BranchArg = Int
 
+
+-- Rotate Amount is a List of Integer  Number
+-- | Amount of the Rotate which will be presented with a list of integer numbers.
 type RotateAmount = [Int]
 
 -- | Data representation of element type
---
-data ET
+-- It can be Either R which is Real Numbers, C which is Complex Numbers or Covector
+data ET -- Element
     = R
     | C
     | Covector
@@ -193,7 +199,7 @@ data ET
 -- Shape: Shape of the expression
 -- we can reconstruct the type of the Expression
 --
-type Internal = (Shape, Node)
+type Internal = (Shape, Node)  --
 
 -- | Hash map of all subexpressions
 --
@@ -247,5 +253,7 @@ data Node
     | InnerProd ET Arg Arg
     -- MARK: Piecewise
     | Piecewise [Double] ConditionArg [BranchArg]
+    -- Mark : Rotate Node type which gets two input, the first input is Rotate Amount (A list of Integers) the second is
+    -- the Arg  which is the list of indices of arguments in the ExpressionMap
     | Rotate RotateAmount Arg
     deriving (Show, Eq, Ord)
