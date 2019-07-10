@@ -19,6 +19,7 @@ data ElementOutcome
     = ElementSpecific ET
     | ElementDefault -- Highest element (R < C < Covector)
 
+-- | Node Outcome (Represent the different kinds of outcomes)
 data NodeOutcome
     = OpOne (Arg -> Node)
     | OpOneElement (ET -> Arg -> Node) ElementOutcome
@@ -27,13 +28,17 @@ data NodeOutcome
     | OpMany (Args -> Node)
     | OpManyElement (ET -> Args -> Node) ElementOutcome
 
+-- | ShapeOutcome (Represent different kinds of shapes that a Node can have)
 data ShapeOutcome
     = ShapeSpecific Shape
     | ShapeDefault -- Highest shape (shape with longest length)
     | ShapeBranches -- Same as branches' shape
 
+-- | Different kinds of Operation Options
 data OperationOption
-    = Normal NodeOutcome ShapeOutcome
+    =
+    -- Normal Operation Options (Which is a kind of data which has NodeOutcome and ShapeOutcome)
+    Normal NodeOutcome ShapeOutcome
     | Condition (ConditionArg -> [BranchArg] -> Node)
 
 -- |
@@ -41,9 +46,11 @@ data OperationOption
 unwrap :: Expression d et -> (ExpressionMap, Int)
 unwrap (Expression n mp) = (mp, n)
 
+-- ?
 wrap :: (ExpressionMap, Int) -> Expression d et
 wrap = uncurry $ flip Expression
 
+-- uncurry ($) (show, 1)
 -- |
 --
 highestShape :: [(ExpressionMap, Int)] -> Shape
@@ -55,12 +62,17 @@ highestElementType :: [(ExpressionMap, Int)] -> ET
 highestElementType = maximum . map (uncurry $ flip retrieveElementType)
 
 -- | The apply function that is used everywhere
---
+-- Input : Operation Option, A list of tuples which is a collection of Expression Map (Hash map of all subexpressions)
+-- and and
 apply :: OperationOption -> [(ExpressionMap, Int)] -> (ExpressionMap, Int)
+-- | In case we have Normal Operation Option, and (exps) as our list expression
 apply (Normal nodeOutcome shapeOutcome) exps =
     let mergedMap =
+            -- Check if the Expression List is Empty
             if null exps
+                -- Return Error
                 then error "List empty here????"
+                -- If it is not empty, then run foldl1 on the union of frist parts of expressions in the list
                 else foldl1 IM.union . map fst $ exps
         shape =
             case shapeOutcome of
@@ -96,21 +108,39 @@ mulMany = apply $ naryET Mul ElementDefault
 sumMany :: [(ExpressionMap, Int)] -> (ExpressionMap, Int)
 sumMany = apply $ naryET Sum ElementDefault
 
--- |
---
+-- | Has shape get a Operation Option and shape and return an Operation Option as output
+-- Inputs: Operation Option , Shape of the Operation
+-- Output: Operation Option
 hasShape :: OperationOption -> Shape -> OperationOption
+-- This definition just care about the frist part of the Operation Option which is the nodeOutcome (See NodeOutcome
+-- comments) and then take the specific shape and merge this to data together.
 hasShape (Normal nodeOutcome _) specificShape =
     Normal nodeOutcome (ShapeSpecific specificShape)
+-- This definition return the option itself, without caring about the kind of shape
 hasShape option _ = option
 
+-- | applyBinary function get an OperationOption and two expression and merge them together to generate a new
+-- expression
 applyBinary ::
        OperationOption
     -> Expression d1 et1
     -> Expression d2 et2
     -> Expression d3 et3
+-- Inputs : option=OperationOption, e1= Expression One, e2= Expression Two
+-- What it do is : Uwrap the e1 and e2 and apply option on them and then wrap everything together and create a new
+-- Expression
 applyBinary option e1 e2 = wrap . apply option $ [unwrap e1, unwrap e2]
 
-applyUnary :: OperationOption -> Expression d1 et1 -> Expression d2 et2
+-- | Apply Unary is a function that unwrap over expression, run operation on it and then wrap it again.
+-- This same as the applyBinary with difference that this just unwarping an expression rather than two, and wrap it
+-- with an operation
+applyUnary ::
+       OperationOption
+       -> Expression d1 et1
+       -> Expression d2 et2
+-- Inputs : option=OperationOption, e1= Expression One
+-- What it do is : Uwrap the e1 and apply option on it and then wrap everything together and create a new
+-- Expression
 applyUnary option e1 = wrap . apply option $ [unwrap e1]
 
 applyNary :: OperationOption -> [Expression d1 et1] -> Expression d2 et2
@@ -133,19 +163,30 @@ binaryET :: (ET -> Arg -> Arg -> Node) -> ElementOutcome -> OperationOption
 binaryET op elm = Normal (OpTwoElement op elm) ShapeDefault
 
 -- | unary operations
---
+-- Generate a operation option based on the Node we defined and used
 unary :: (Arg -> Node) -> OperationOption
 unary op = Normal (OpOne op) ShapeDefault
 
-unaryET :: (ET -> Arg -> Node) -> ElementOutcome -> OperationOption
-unaryET op elm = Normal (OpOneElement op elm) ShapeDefault
 
 -- | n-ary operations
 --
 nary :: (Args -> Node) -> OperationOption
 nary op = Normal (OpMany op) ShapeDefault
 
+-- | unaryET gets a combination of (Element Type -> Arguments -> Node) which is basically a node, and ElementOutcome
+-- look at the ElementOutcome data, and return OperationOption has output
+unaryET :: (ET -> Arg -> Node) -> ElementOutcome -> OperationOption
+-- This definition implies that unaryET get the operation and element and merge it whit ShapeDefualt (have a look at
+-- ShapeDefault comments) and merge them in order to make a Operation Option
+unaryET op elm = Normal (OpOneElement op elm) ShapeDefault
+
+
+-- | naryET gets a combination of (Element Type -> Arguments -> Node) which is basically a node, and ElementOutcome
+-- look at the ElementOutcome data, and return OperationOption has output
 naryET :: (ET -> Args -> Node) -> ElementOutcome -> OperationOption
+-- This definition implies that naryET get the operation and element and merge it whit ShapeDefualt (have a look at
+-- ShapeDefault comments) and merge them in order to make a Operation Option. The only difference between this function
+-- and the unaryET is that, this function use OpManyElement for ElemntOutCome
 naryET op elm = Normal (OpManyElement op elm) ShapeDefault
 
 -- | branch operation

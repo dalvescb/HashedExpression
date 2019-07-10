@@ -39,9 +39,15 @@ allEqual xs = and $ zipWith (==) (safeTail xs) xs
 fromR :: Double -> Complex Double
 fromR x = x :+ 0
 
+-- | This function is going to ensure that to input Expression has the same shape
 ensureSameShape :: Expression d et1 -> Expression d et2 -> a -> a
+-- Inputs e1= Expression one, e2= Expression two, after = Expression after shape change
+-- output : after if the shape of e1 and e2 are same
 ensureSameShape e1 e2 after
+    -- Check if the Expression Shape are the same (See Expression Shape comments on HashedNode) and if the result is
+    -- true return after (which is something) ?
     | expressionShape e1 == expressionShape e2 = after
+    -- Show error if the result is not satisfactory
     | otherwise =
         error $
         "Ensure same shape failed " ++

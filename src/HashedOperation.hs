@@ -99,12 +99,23 @@ const3d (size1, size2, size3) val = Expression h (fromList [(h, node)])
 instance (DimensionType d, Addable et) => AddableOp (Expression d et) where
     (+) :: Expression d et -> Expression d et -> Expression d et
     (+) e1 e2 =
+        -- Generate an OperationOption (op) using Sum and e1 (first Expression)
         let op = naryET Sum ElementDefault `hasShape` expressionShape e1
+        -- Ensure that they have the same shape and then generate a new expression based on the new operation
          in ensureSameShape e1 e2 $ applyBinary op e1 e2
-    negate :: Expression d et -> Expression d et
-    negate =
-        let op = unaryET Neg ElementDefault
-         in applyUnary $ unaryET Neg ElementDefault
+    negate :: Expression d et -> Expression d et -- I think the definition is not correct
+    negate e1 =
+        -- Generate an OperationOption (op) using Sum and e1 (first Expression)
+        let op = unaryET Neg ElementDefault `hasShape` expressionShape e1
+        -- Generate the new expression based on the operation option produced above created
+        in applyUnary op e1
+
+    --negate :: Expression d et -> Expression d et -- I think the definition is not correct
+    --    negate =
+    --         -- Generate an OperationOption (op) using Sum and e1 (first Expression)
+    --        let op = unaryET Neg ElementDefault
+    --
+    --        in applyUnary $ unaryET Neg ElementDefault
 
 sum :: (DimensionType d, Addable et)
     => [Expression d et]

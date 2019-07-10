@@ -317,6 +317,9 @@ instance Evaluable One R (Array Int Double) where
                                 , let chosen =
                                           chooseBranch marks (cdt ! i) branches
                                 ]
+                    Rotate [offset] arg ->
+                        let evaluatedArg = eval valMap . expOneR $ arg
+                        in
                     _ -> error "expression structure One R is wrong"
         | otherwise = error "one r but shape is not [size] ??"
 

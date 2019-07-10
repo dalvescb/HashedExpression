@@ -71,13 +71,15 @@ data Three
 --
 class ElementType et
 
+-- | NumType Element Type definition
 class ElementType et =>
       NumType et
 
+-- | Addable Element Type definition
 class ElementType et =>
       Addable et
 
-
+-- | Dimension Type Definition
 class DimensionType d
 
 
@@ -107,9 +109,14 @@ instance VectorSpace d s s => InnerProductSpace d s
 
 -- | Classes for operations so that both Expression and Pattern (in HashedPattern) can implement
 --
+
+-- | Addable Operations are (+), Negative and (-)
 class AddableOp a where
+    -- (+) gets two value of the same type and return a third value from the same type
     (+) :: a -> a -> a
+    -- "negate" gets a value of the same type and return a same type value
     negate :: a -> a
+    -- (-) gets two values of the same type and return a same type value (combination of two operation above)
     (-) :: a -> a -> a
     x - y = x + negate y
 
@@ -195,18 +202,20 @@ data ET -- Element
     | Covector
     deriving (Show, Eq, Ord)
 
--- | Internal
--- Shape: Shape of the expression
--- we can reconstruct the type of the Expression
---
-type Internal = (Shape, Node)  --
+-- | Internal Tuple has the structure as described Bellow:
+-- Shape: Shape of the expression (See Shape  Comments on this file)
+-- Node : Node of the Expression (See Node Comments of this file)
+-- We can reconstruct the type of the Expression
+type Internal = (Shape, Node)
 
 -- | Hash map of all subexpressions
---
+-- Expression Map is a dictionary of Internal data type (See the Internal Data Type Description)
+-- (Based on the definition of IntMap) which mapping the integer keys to values.
 type ExpressionMap = IntMap Internal
 
--- | Expression with 2 phantom types (dimension and num type)
---
+-- | Expression with 2 phantom types (dimension and Element Type)
+-- But an Expression also keeps other information as structure (Index of the Expression, as well as the expression Map
+-- of all subexpressions it has (Have a llok at the Expression map Comment).
 data Expression d et =
     Expression
         { exIndex :: Int -- the index this expression

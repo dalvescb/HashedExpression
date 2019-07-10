@@ -146,10 +146,15 @@ expressionElementType (Expression n mp) =
         Just (_, node) -> nodeElementType node mp
         _ -> error "expression not in map"
 
+-- | Expression Shape Function, get at expression and return its Shape
+-- Input : Expression with (the index of expression, expressionMap ) as Input
+-- Output: Shape of the function (Read the comments on the Shape in HashedExpression File).
 expressionShape :: Expression d et -> Shape
 expressionShape (Expression n mp) =
+    -- Basically, this function look for finding the index of the expression in the Expression Map (Look the Expression
+    -- map (Look at the comments of Expression and Internal in the HashedExpression File). Then check if it can find
     case IM.lookup n mp of
-        Just (dim, _) -> dim
+        Just (shape, _) -> shape
         _ -> error "expression not in map"
 
 expressionInternal :: Expression d et -> Internal
