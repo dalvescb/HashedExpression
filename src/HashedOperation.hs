@@ -113,16 +113,6 @@ instance (DimensionType d, Addable et) => AddableOp (Expression d et) where
         -- Generate the new expression based on the operation option produced above created
         in applyUnary op e1
 
-    --        This is the old version
-    --        =======================================================================================
-    --        negate :: Expression d et -> Expression d et -- I think the definition is not correct
-    --        negate =
-    --         -- Generate an OperationOption (op) using Sum and e1 (first Expression)
-    --        let op = unaryET Neg ElementDefault
-    --
-    --        in applyUnary $ unaryET Neg ElementDefault
-    --        ========================================================================================
-
 
 -- | The sum function is getting a list of expressions and add them up together using the Sum Node defined in
 -- HashedExpression.hs and generates a new one based on the "Sum" node.

@@ -141,6 +141,7 @@ applyUnary ::
 -- Inputs : option=OperationOption, e1= Expression One
 -- What it do is : Unwrap the e1 and apply option on it and then wrap everything together and create a new
 -- expression
+applyUnary option e1 = wrap . apply option $ [unwrap e1]
 
 
 

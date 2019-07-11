@@ -169,7 +169,7 @@ instance Evaluable Zero R Double where
                                     , let x = res1 ! (i, j, k)
                                     , let y = res2 ! (i, j, k)
                                     ]
-                  :q      _ -> error "4D shape?"
+                        _ -> error "4D shape?"
                 Piecewise marks conditionArg branchArgs ->
                     let cdt = eval valMap $ expZeroR mp conditionArg
                         branches = map (eval valMap . expZeroR mp) branchArgs
@@ -317,9 +317,9 @@ instance Evaluable One R (Array Int Double) where
                                 , let chosen =
                                           chooseBranch marks (cdt ! i) branches
                                 ]
-                    Rotate [offset] arg ->
-                        let evaluatedArg = eval valMap . expOneR $ arg
-                        in
+--                    Rotate [offset] arg ->
+--                        let evaluatedArg = eval valMap . expOneR $ arg
+--                        in
                     _ -> error "expression structure One R is wrong"
         | otherwise = error "one r but shape is not [size] ??"
 
