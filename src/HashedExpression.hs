@@ -111,6 +111,7 @@ instance VectorSpace d s s => InnerProductSpace d s
 --
 
 -- | Addable Operations are (+), Negative and (-)
+-- Class for defining addable operations
 class AddableOp a where
     -- (+) gets two value of the same type and return a third value from the same type
     (+) :: a -> a -> a
@@ -120,7 +121,10 @@ class AddableOp a where
     (-) :: a -> a -> a
     x - y = x + negate y
 
+-- | Class for defining the Multiply Operation
 class MultiplyOp a b c | a b -> c where
+-- The only operation considers as MultiplyOp is (*) which gets two not necessarily same type values (a and b) and
+-- returns not necessarily same type output (c)
     (*) :: a -> b -> c
 
 class PowerOp a b | a -> b where

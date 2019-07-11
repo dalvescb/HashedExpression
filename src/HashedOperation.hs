@@ -95,54 +95,91 @@ const3d (size1, size2, size3) val = Expression h (fromList [(h, node)])
     h = hash node
 
 -- | Element-wise sum
---
+--  This is a instance of AddableOp which is a class where d as "Dimension" can have "DimensionType", and et as "ElementType" can be
+--  Addable. The rest is the implementation of each function pre-defined in the class definition of AddableOp (See the
+--  Comment of AddableOp in HashedExpression.hs)
 instance (DimensionType d, Addable et) => AddableOp (Expression d et) where
     (+) :: Expression d et -> Expression d et -> Expression d et
     (+) e1 e2 =
-        -- Generate an OperationOption (op) using Sum and e1 (first Expression)
+        -- Generate an OperationOption (op) using Sum Node and e1 (first Expression)
         let op = naryET Sum ElementDefault `hasShape` expressionShape e1
-        -- Ensure that they have the same shape and then generate a new expression based on the new operation
+        -- Ensure that two input expressions have the same shape and then generate a new expression based on the
+        -- new operation (op)
          in ensureSameShape e1 e2 $ applyBinary op e1 e2
     negate :: Expression d et -> Expression d et -- I think the definition is not correct
     negate e1 =
-        -- Generate an OperationOption (op) using Sum and e1 (first Expression)
+        -- Generate an OperationOption (op) using Neg Node and e1 (first Expression)
         let op = unaryET Neg ElementDefault `hasShape` expressionShape e1
         -- Generate the new expression based on the operation option produced above created
         in applyUnary op e1
 
-    --negate :: Expression d et -> Expression d et -- I think the definition is not correct
-    --    negate =
+    --        This is the old version
+    --        =======================================================================================
+    --        negate :: Expression d et -> Expression d et -- I think the definition is not correct
+    --        negate =
     --         -- Generate an OperationOption (op) using Sum and e1 (first Expression)
     --        let op = unaryET Neg ElementDefault
     --
     --        in applyUnary $ unaryET Neg ElementDefault
+    --        ========================================================================================
 
+
+-- | The sum function is getting a list of expressions and add them up together using the Sum Node defined in
+-- HashedExpression.hs and generates a new one based on the "Sum" node.
 sum :: (DimensionType d, Addable et)
+-- Input : List of Expressions
     => [Expression d et]
+-- Output : May be an Expression
     -> Maybe (Expression d et)
+-- Return Nothing if the list if empty
 sum [] = Nothing
+-- If the list is not empty, then add them up together
 sum es = Just . applyNary (naryET Sum ElementDefault) $ es
 
 -- | Element-wise multiplication
---
+-- This is a instance of MultiplyOp which is a class defined in "Hashed Expression" (Check its comments), which gets an
+-- Expression with d as DimensionType and et as NumType which is an ElementType and produce and expression with same
+-- dimension and element type
 instance (DimensionType d, NumType et) =>
          MultiplyOp (Expression d et) (Expression d et) (Expression d et) where
+-- Inputs : two same type Expressions
+-- Output : An expression just like two input expressions.
     (*) :: Expression d et -> Expression d et -> Expression d et
     (*) e1 e2 =
+-- Generate an OperationOption (op) using Mul Node and e1 (first Expression)
         let op = naryET Mul ElementDefault `hasShape` expressionShape e1
+-- Ensure that two input expressions have the same shape and then generate a new expression based on the
+-- new operation (op)
          in ensureSameShape e1 e2 $ applyBinary op e1 e2
 
+-- | The product function is getting a list of expressions, and use the Mul operation (Which is a Node) defined
+--  in HashehExpessson.hs and gets a list of expressions and generate a new one based on the "Mul" node.
 product ::
        (DimensionType d, NumType et)
+-- Input : List of Expressions
     => [Expression d et]
+-- Output : May be an Expression
     -> Maybe (Expression d et)
+-- Return Nothing if the list if empty
 product [] = Nothing
+-- If the list is not empty, then use the "Mul" node the generate an Expression using the list of Expression given as
+-- input
 product es = Just . applyNary (naryET Mul ElementDefault) $ es
 
--- | Element-wise multiplication
---
+-- | Element-wise Power
+-- Power Operation is very similar to Product Operation. Both of them has output of d as DimensionType and et asNumType
+-- which is an ElementType. The input for this function is an Expression like output and an Integer number (Which is the
+-- power).
 instance (DimensionType d, NumType et) => PowerOp (Expression d et) Int where
-    (^) :: Expression d et -> Int -> Expression d et
+    (^) ::
+      -- Input : Expression with d (DimensionType) and et (NumType)
+      Expression d et ->
+      -- Input : Integer number
+      Int ->
+      -- Output : Expression with d (DimensionType) and et (NumType)
+      Expression d et
+    -- First create new OperationOption vased on `hasShape` and "Power" node. And then create a new Expression, using
+    -- 'applyUnary' function.
     (^) e1 x = applyUnary (unary (Power x) `hasShape` expressionShape e1) e1
 
 -- | Scale in vector space

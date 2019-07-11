@@ -139,11 +139,19 @@ applyUnary ::
        -> Expression d1 et1
        -> Expression d2 et2
 -- Inputs : option=OperationOption, e1= Expression One
--- What it do is : Uwrap the e1 and apply option on it and then wrap everything together and create a new
--- Expression
-applyUnary option e1 = wrap . apply option $ [unwrap e1]
+-- What it do is : Unwrap the e1 and apply option on it and then wrap everything together and create a new
+-- expression
 
+
+
+-- | applyNary is a function that unwrap over expression, run operation on it and then wrap it again.
+-- This same as the applyBinary with difference that first it is working on a list of expressions rather that an individual
+-- one. and second, this function just used the option='OperationOption' part and try
+-- to prepare something predefined, so later on this 'ready-to-use' function can have a list of expressions and generate
+-- a new expression as output
 applyNary :: OperationOption -> [Expression d1 et1] -> Expression d2 et2
+-- Input : option as "OperationOption"
+-- Output : "Ready-to-use" function which needs just a list of expressions
 applyNary option = wrap . apply option . map unwrap
 
 applyConditionAry ::
