@@ -127,14 +127,28 @@ class MultiplyOp a b c | a b -> c where
 -- returns not necessarily same type output (c)
     (*) :: a -> b -> c
 
+-- | Class for Power Operation
 class PowerOp a b | a -> b where
     (^) :: a -> b -> a
 
-class AddableOp b =>
-      VectorSpaceOp a b
-    where
-    scale :: a -> b -> b
-    (*.) :: a -> b -> b
+-- | Vector Space is a Class that has  AddableOp as its ouput.
+class
+  AddableOp b => -- ^ b is an Addable operation which is an A
+  VectorSpaceOp
+  a -- ^ a is the input of the VectorSpace Operation
+  b -- ^ b is the output of the VectorSpace Operation
+  where
+    -- | The 'scale' operation, do scaling (.*) operation is the same as scale
+    scale ::
+      a -- ^ a as input type
+      -> b -- ^ b as another input type different from a
+      -> b -- ^ the output should be in the same type as the second input b
+    -- | The '(*.)' operation, do scaling
+    (*.) ::
+      a -- ^ a as input type
+      -> b -- ^ b as another input type different from a
+      -> b -- ^ the output should be in the same type as the second input b
+    -- | Assigning the scale operation to (.*)
     (*.) = scale
 
 class NumOp a where
@@ -267,6 +281,5 @@ data Node
     -- MARK: Piecewise
     | Piecewise [Double] ConditionArg [BranchArg]
     -- Mark : Rotate Node type which gets two input, the first input is Rotate Amount (A list of Integers) the second is
-    -- the Arg  which is the list of indices of arguments in the ExpressionMap
-    | Rotate RotateAmount Arg
+        | Rotate RotateAmount Arg -- ^ Rotate Node (Inputs : RotateAmount as Integer, Argument as expression
     deriving (Show, Eq, Ord)

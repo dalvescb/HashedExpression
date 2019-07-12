@@ -172,15 +172,32 @@ instance (DimensionType d, NumType et) => PowerOp (Expression d et) Int where
     -- 'applyUnary' function.
     (^) e1 x = applyUnary (unary (Power x) `hasShape` expressionShape e1) e1
 
--- | Scale in vector space
---
+-- | VectorSpace Operation
+-- VectorSpace Operation Operation is very similar to Product Operation. Both of them has output of d as DimensionType and et asNumType
+-- which is an ElementType. The input for this function is an Expression like output and an Integer number (Which is the
+-- power).
 instance (VectorSpace d et s) =>
          VectorSpaceOp (Expression Zero s) (Expression d et) where
+    {-- |
+     Scale Operation get a Zero Expression as scaler, and Scale the second expression. The ouput of the  scale operation
+      should be in the  form of the second output.
+    -}
     scale :: Expression Zero s -> Expression d et -> Expression d et
-    scale e1 e2 =
+    scale
+      e1 -- ^ e1 : Expression one which is a zero expression as scaler
+      e2 -- ^ e2 : Expression two which is an expression with dimension d and element type et.
+      =
+        {--
+        op is an operationOption, for this purpose, expressionShape find the shape of the second expression. Then using
+        `hasShape` function uses that shape, and Scale operator to generate a new operation option. Then binaryET used
+        create a new operationOption based on the results of overall description presented earlier.
+        -}
         let op =
                 binaryET Scale (ElementSpecific $ expressionElementType e2) `hasShape`
                 expressionShape e2
+         {--0
+          Then using applyBinary and op (OperationOption), we generates new expression using e1 and e2
+         -}
          in applyBinary op e1 e2
 
 ---- | From R to C two part
@@ -268,8 +285,25 @@ piecewise marks conditionExp branchExps =
         ensureSameShapeList branchExps .
         ensureSameShape conditionExp (head branchExps)
 
-instance (ElementType et) => RotateOp Int (Expression One et) where
-    rotate :: Int -> Expression One et -> Expression One et
+{-- |
+Instance of Rotate Operation.
+-}
+instance (ElementType et) =>
+  RotateOp
+    Int
+    (Expression One et)
+  where
+    rotate ::
+      Int -- ^ input : Amount of Rotate as Integer
+      -> Expression One et -- ^ Input : One dimension expression
+      -> Expression One et -- ^ Output : One dimension expression
+    {--
+    For rotate operation, 'unary' first generate a new operationOption using 'Rotate' Node (Which just has its first
+    input value - RotateAmount - as an integer value). Then the results used as input for 'applyUnary' 's first
+    input (Which is operationOption)  - without using other argument which is an expression - . The final result is
+    a "ready-to-use" function which just need an expression to start the process of generating new expression using the
+    previously provided operationOption which in this case  is Rotate
+    -}
     rotate x = applyUnary . unary $ Rotate [x]
 
 instance (ElementType et) => RotateOp (Int, Int) (Expression Two et) where

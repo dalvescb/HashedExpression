@@ -5,7 +5,10 @@ import HashedExpression
 
 -- | Helpers functions for Expression nodes
 --
-nodeElementType :: Node -> ExpressionMap -> ET
+nodeElementType ::
+  Node  -- ^ Input : Node (See Hashed Expression)
+  -> ExpressionMap -- ^ Input : Expression Map
+  -> ET -- ^ Output : Element Type of the Node
 nodeElementType node mp =
     case node of
         Var _ -> R
@@ -140,10 +143,22 @@ retrieveShape n mp =
         Just (dim, _) -> dim
         _ -> error "expression not in map"
 
-expressionElementType :: Expression d et -> ET
+-- | The 'expressionElementType' gets and Expression as input. and return the element type of it
+expressionElementType ::
+  Expression d et -- ^ Input Expression which has d as dimension and et as element type
+  -> ET           -- ^ Output element type
 expressionElementType (Expression n mp) =
+    -- Look up in our Expression map to find the Internal tuple of this expression
     case IM.lookup n mp of
+        {-- If look up process has a result, it would be in the form of tuple. We ignore the frist part of tuple,
+        since we just need the Node type. The function return the Node type. Which later on, it used as an input for
+        'nodeElementType' and it returns our Element Type for us.
+        -}
         Just (_, node) -> nodeElementType node mp
+        {--
+        If lookup does not have any result, then just show an error regarding that such an expression does not exist.
+        in our expression map.
+        -}
         _ -> error "expression not in map"
 
 -- | Expression Shape Function, get at expression and return its Shape

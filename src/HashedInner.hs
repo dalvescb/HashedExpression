@@ -24,7 +24,7 @@ data NodeOutcome
     = OpOne (Arg -> Node)
     | OpOneElement (ET -> Arg -> Node) ElementOutcome
     | OpTwo (Arg -> Arg -> Node)
-    | OpTwoElement (ET -> Arg -> Arg -> Node) ElementOutcome
+    | OpTwoElement (ET -> Arg -> Arg -> Node) ElementOutcome -- ?
     | OpMany (Args -> Node)
     | OpManyElement (ET -> Args -> Node) ElementOutcome
 
@@ -108,11 +108,11 @@ mulMany = apply $ naryET Mul ElementDefault
 sumMany :: [(ExpressionMap, Int)] -> (ExpressionMap, Int)
 sumMany = apply $ naryET Sum ElementDefault
 
--- | Has shape get a Operation Option and shape and return an Operation Option as output
+-- | Hasshape gets a Operation Option and shape and return an Operation Option as output
 -- Inputs: Operation Option , Shape of the Operation
 -- Output: Operation Option
 hasShape :: OperationOption -> Shape -> OperationOption
--- This definition just care about the frist part of the Operation Option which is the nodeOutcome (See NodeOutcome
+-- This definition just care about the first part of the Operation Option which is the nodeOutcome (See NodeOutcome
 -- comments) and then take the specific shape and merge this to data together.
 hasShape (Normal nodeOutcome _) specificShape =
     Normal nodeOutcome (ShapeSpecific specificShape)
@@ -168,7 +168,16 @@ applyConditionAry option e branches =
 binary :: (Arg -> Arg -> Node) -> OperationOption
 binary op = Normal (OpTwo op) ShapeDefault
 
-binaryET :: (ET -> Arg -> Arg -> Node) -> ElementOutcome -> OperationOption
+-- | The 'binaryET' function, generates an OperationOption based on its input
+binaryET ::
+  (ET -> Arg -> Arg -> Node) -- ^ Input : (Element type -> Argument -> Argument-> Node) structure as the first input
+  -> ElementOutcome -- ^ Input : ElementOutcome as the second input
+  -> OperationOption -- ^ Output : OperationOption as the output
+{-- op is (ET -> Arg -> Arg -> Node) which is a Node. elm is the ElementOutcome. Since the first op is in the form of
+ (ET -> Arg -> Arg -> Node), then in should have the OpTwoElement of Node Outcome. This function just create an
+ operationOption which is Normal, has OpTwoElement as Node Outcome and defaultShape as ShapeOutcome, and finally presents
+ it as output operationOption
+ -}
 binaryET op elm = Normal (OpTwoElement op elm) ShapeDefault
 
 -- | unary operations
