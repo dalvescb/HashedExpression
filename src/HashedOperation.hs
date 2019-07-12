@@ -286,7 +286,7 @@ piecewise marks conditionExp branchExps =
         ensureSameShape conditionExp (head branchExps)
 
 {-- |
-Instance of Rotate Operation.
+Instance of Rotate Operation for one dimension expressions
 -}
 instance (ElementType et) =>
   RotateOp
@@ -306,13 +306,34 @@ instance (ElementType et) =>
     -}
     rotate x = applyUnary . unary $ Rotate [x]
 
+
+{-- |
+Instance of Rotate Operation for two dimension expressions
+-}
 instance (ElementType et) => RotateOp (Int, Int) (Expression Two et) where
-    rotate :: (Int, Int) -> Expression Two et -> Expression Two et
+    rotate ::
+      (Int, Int) -- ^ input : Amount of Rotate as a pair of integer numbers (x,y)
+      -> Expression Two et -- ^ Input : two dimension expression
+      -> Expression Two et -- ^ Output : two dimension expression
+    {--
+        For rotate operation, 'unary' first generate a new operationOption using 'Rotate' Node (Which just has its first
+        input value - RotateAmount - as a pair of  integer value). Then the results used as input for 'applyUnary' 's
+        first input (Which is operationOption) - without using other argument which is an expression - .
+        The final result is a "ready-to-use" function that just need an expression to start the process of generating
+        new expression using the previously provided operationOption which in this case is Rotate
+   -}
     rotate (x, y) = applyUnary . unary $ Rotate [x, y]
 
+{-- |
+Instance of Rotate Operation for two dimension expressions
+-}
 instance (ElementType et) =>
          RotateOp (Int, Int, Int) (Expression Three et) where
-    rotate :: (Int, Int, Int) -> Expression Three et -> Expression Three et
+
+    rotate ::
+      (Int, Int, Int) -- ^ input : Amount of Rotate as a 3D vector of integer numbers (x,y,z)
+      -> Expression Three et -- ^ Input : Three dimension expression
+      -> Expression Three et -- ^ Output : Three dimension expression
     rotate (x, y, z) = applyUnary . unary $ Rotate [x, y, z]
 
 -- | Prelude version of * and +
