@@ -141,12 +141,12 @@ spec =
             simplify
                 (((x ^ 2) * (y ^ 2)) + (const 2.0 *. (y * (x ^ 3))) + (x ^ 4))
        -- simplify (x+x) <.> y `shouldBe` simplify (const 2.0 *.(x*y)) --(2.0*.(x*y))  But error while testing it FIXME
-        -- simplify (x*.x) <.> x `shouldBe` simplify x^3 -- Error while testing FIXME
+--         simplify (x*.x) <.> x `shouldBe` simplify x^3) -- Error while testing FIXME
 --One Dimension TC
         simplify x1 `shouldBe` simplify x1
         simplify (x1 * x1) `shouldBe` simplify (x1 ^ 2)
         simplify (x1 + x1) `shouldBe` simplify (const 2.0 *. x1)
---        simplify (x1 - x1) `shouldBe` const 0 -- FIXME error for with n without const 0, 0.0, Zero,
+--        simplify (x1 - x1) `shouldBe` const1d 10 0 -- FIXME error for with n without const 0, 0.0, Zero,
 --        simplify (x1 / x1) `shouldBe` 1 --FIXME
         simplify (x1 + y1) `shouldBe` simplify ((x1 + y1))
         simplify (x1 - y1) `shouldBe` simplify (x1 + (const (-1.0) *. y1))
