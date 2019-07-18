@@ -49,7 +49,7 @@ import Test.Hspec
 import Test.QuickCheck hiding (scale)
 
 main = do
-    let g = ((x1+y1)/(x1-y1))
+    let g = (x2<.>x2)
     showExp g
     showExp . simplify $ g
 

@@ -324,12 +324,12 @@ spec =
         simplify ((x2 + y2) / (x2 - y2)) `shouldBe`
             simplify
                 ((x2 * ((x2 + (const (-1.0) *. y2)) ^ (-1))) +
-                 (y2 * ((x2 + (const (-1.0) *. y2)) ^ (-1))) --FIx2ME
+                 (y2 * ((x2 + (const (-1.0) *. y2)) ^ (-1))) --FIXME
                  )
         simplify (x2 * x2) `shouldBe` simplify (x2 ^ 2)
 --        simplify (x2 ^ 0) `shouldBe` const 1.0
         simplify (x2 ^ 1) `shouldBe` simplify x2
---        simplify (const 3*.x2)/(const 2*.x2) `shouldBe` (const 1 *.x2) --FIx2ME
+--        simplify (const 3*.x2)/(const 2*.x2) `shouldBe` (const 1 *.x2) --FIXME
 
 ----DOT PRODUCT
 --        simplify (x2 <.> y2) `shouldBe` simplify (x2 * y2)
