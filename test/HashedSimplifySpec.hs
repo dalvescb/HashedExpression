@@ -119,7 +119,7 @@ spec = do
                 prettify (simplify (sum [const 3 *. x1, const 4 *. y1]))
             simplify (sum [const (-1) *. x1, x1, const 3 *. y1, y1, z1]) `shouldBe`
                 simplify (sum [const 4 *. y1, z1])
-            simplify (x1 - x1) `shouldBe` zero1 One Dimesion 
+            simplify (x1 - x1) `shouldBe` zero1
             prettify (simplify (sum [one *. x, x, x, const 3 *. y, y])) `shouldBe`
                 prettify (simplify (sum [const 3 *. x, const 4 *. y]))
             simplify (sum [const (-1) *. x, x, const 3 *. y, y, z]) `shouldBe`
@@ -166,7 +166,7 @@ spec = do
             simplify (log (exp x2)) `shouldBe` x2
             simplify (exp (log x2)) `shouldBe` x2
 
---Higher Dimensions
+--One Dimension
     describe "Simplify One Dimension spec" $ do
         specify "simplify  One Dimesion  one zero" $ do
             simplify (const 0.0 *. const 9.0) `shouldBe` const 0.0 --Check if const could be used with array
@@ -260,3 +260,99 @@ spec = do
             prettify (simplify (negate (negate (x1 + y1)))) `shouldBe`
                 prettify (simplify (x1 + y1))
             simplify (negate zero1) `shouldBe` zero1
+
+--Two Dimension
+    describe "Simplify Two Dimension spec" $ do
+        specify "simplify  Two Dimesion  one zero" $ do
+            simplify (const 0.0 *. const 9.0) `shouldBe` const 0.0 --Check if const could be used with array
+            simplify (x2 * one2) `shouldBe` x2
+            simplify (one2 * x2) `shouldBe` x2
+            simplify (x2 * zero2) `shouldBe` zero2
+            simplify (zero2 * x2) `shouldBe` zero2
+            simplify (y2 * (x2 * zero2)) `shouldBe` zero2
+            simplify (zero2 * (x2 * one2)) `shouldBe` zero2
+            simplify (zero2 * x2 * one2) `shouldBe` zero2
+            simplify (zero2 * (x2 * y2)) `shouldBe` zero2
+            simplify ((x2 * y2) * zero2) `shouldBe` zero2
+            simplify ((x2 * zero2) * one2) `shouldBe` zero2
+            prettify (simplify ((x2 * y2) * one2)) `shouldBe` prettify (y2 * x2)
+            simplify (x2 * y2 * z2 * one2) `shouldBe` simplify (x2 * y2 * z2)
+            simplify (product [x2, y2, z2, t2, w2, zero2]) `shouldBe` zero2
+        specify "simplify Two Dimesion log and exponential" $ do
+            simplify (log (exp x2)) `shouldBe` x2
+            simplify (exp (log x2)) `shouldBe` x2
+        specify "complex Two Dimesion  related" $ do
+            prettify (simplify ((x2 +: y2) * (z2 +: w2))) `shouldBe`
+                prettify (simplify ((x2 * z2 - y2 * w2) +: (x2 * w2 + y2 * z2)))
+            simplify (xRe (x2 +: y2)) `shouldBe` x2
+            simplify (xIm (x2 +: y2)) `shouldBe` y2
+            simplify ((x2 +: y2) + (u2 +: v2)) `shouldBe`
+                simplify ((x2 + u2) +: (y2 + v2))
+            simplify (s *. (x2 +: y2)) `shouldBe` simplify ((s *. x2) +: (s *. y2))
+            simplify ((x2 +: y2) * (z2 +: w2)) `shouldBe`
+                simplify ((x2 * z2 - y2 * w2) +: (x2 * w2 + y2 * z2))
+        specify "Two Dimesion dot product" $ do
+            simplify (x2 <.> zero2) `shouldBe` zero
+            simplify (zero2 <.> x2) `shouldBe` zero
+            prettify (simplify ((s *. x2) <.> y2)) `shouldBe`
+                prettify (simplify (s * (x2 <.> y2)))
+            simplify (x2 <.> (s *. y2)) `shouldBe` simplify (s * (x2 <.> y2))
+        specify "Two Dimesion distributivity" $ do
+            simplify (x2 * (y2 + z2)) `shouldBe` (y2 * x2 + z2 * x2)
+            simplify ((y2 + z2) * x2) `shouldBe` (y2 * x2 + z2 * x2)
+            (simplify (x *. (y2 + z2))) `shouldBe` (simplify (x *. z2 + x *. y2))
+            prettify (simplify (simplify (x2 <.> (y2 + z2)))) `shouldBe`
+                prettify (simplify ((x2 <.> y2) + (x2 <.> z2)))
+            simplify ((y2 + z2) <.> x2) `shouldBe` simplify ((x2 <.> y2) + (x2 <.> z2))
+            simplify (x2 * sum [y2, z2, t2, u2, v2]) `shouldBe`
+                simplify (sum (map (x2 *) [y2, z2, t2, u2, v2]))
+            simplify (sum [y2, z2, t2, u2, v2] * x2) `shouldBe`
+                simplify (sum (map (x2 *) [y2, z2, t2, u2, v2]))
+            simplify (x *. sum [y2, z2, t2, u2, v2]) `shouldBe`
+                simplify (sum (map (x *.) [y2, z2, t2, u2, v2]))
+            simplify (x2 <.> sum [y2, z2, t2, u2, v2]) `shouldBe`
+                simplify (sum (map (x2 <.>) [y2, z2, t2, u2, v2]))
+            simplify (sum [y2, z2, t2, u2, v2] <.> x2) `shouldBe`
+                simplify (sum (map (x2 <.>) [y2, z2, t2, u2, v2]))
+            prettify (simplify (product [a2, b2, c2, sum [x2, y2, z2]])) `shouldBe`
+                prettify
+                    (simplify (sum (map (product . (: [a2, b2, c2])) [x2, y2, z2])))
+            simplify ((x2 + y2) * (z2 + t2) * a2 * b2) `shouldBe`
+                simplify
+                    (a2 * b2 * x2 * z2 + a2 * b2 * x2 * t2 + a2 * b2 * y2 * z2 +
+                     a2 * b2 * y2 * t2)
+        specify "Two Dimesion flatten sum and product" $ do
+            simplify (product [x2 * y2, product [z2, t2, w2], one2]) `shouldBe`
+                simplify (product [x2, y2, z2, t2, w2])
+            simplify (sum [x2 + y2, sum [z2, t2, w2 + s2], zero2]) `shouldBe`
+                simplify (sum [x2, y2, z2, t2, w2, s2])
+        specify "Two Dimesion group constants together" $ do
+            simplify (product [one2, one2, x2, y2, one2, z2]) `shouldBe`
+                product [z2, y2, x2]
+            prettify (simplify (sum [one2, one2, x2, y2, one2, z2])) `shouldBe`
+                prettify (simplify (sum [(const2d (10,10)) 3, x2, y2, z2]))
+            simplify (product [(const2d (10,10)) 1, (const2d (10,10)) 2, x2, y2, (const2d (10,10)) 3, z2]) `shouldBe`
+                simplify (product [(const2d (10,10)) 6, x2, y2, z2])
+        specify "Two Dimesion combine same terms" $
+            -- Higher dimension this is correct
+         do
+            prettify (simplify (sum [one *. x2, x2, x2, const 3 *. y2, y2])) `shouldBe`
+                prettify (simplify (sum [const 3 *. x2, const 4 *. y2]))
+            simplify (sum [const (-1) *. x2, x2, const 3 *. y2, y2, z2]) `shouldBe`
+                simplify (sum [const 4 *. y2, z2])
+            simplify (x2 - x2) `shouldBe` zero2
+            prettify (simplify (sum [one *. x2, x2, x2, const 3 *. y2, y2])) `shouldBe`
+                prettify (simplify (sum [const 3 *. x2, const 4 *. y2]))
+            simplify (sum [const (-1) *. x2, x2, const 3 *. y2, y2, z2]) `shouldBe`
+                simplify (sum [const 4 *. y2, z2])
+            simplify (x2 - x2) `shouldBe` zero2
+        specify "Two Dimesion scale rules" $ do
+            simplify (x *. (y *. v2)) `shouldBe` simplify ((x * y) *. v2)
+            simplify (xRe (x *. xc)) `shouldBe` simplify (x *. xRe xc)
+            simplify (xIm (x *. xc)) `shouldBe` simplify (x *. xIm xc)
+        specify "Two Dimesion negate rules" $ do
+            simplify (negate (negate x2)) `shouldBe` simplify x2
+            prettify (simplify (negate (negate (x2 + y2)))) `shouldBe`
+                prettify (simplify (x2 + y2))
+            simplify (negate zero2) `shouldBe` zero2
+
