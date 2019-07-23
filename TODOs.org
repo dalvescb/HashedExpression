@@ -1,0 +1,5 @@
+
+* TODO finish unimplemented ops
+  
+  [[file:~/HashedExpression/src/HashedToC.hs::--%20TODO%20finish%20unimplemented%20ops]]
+
