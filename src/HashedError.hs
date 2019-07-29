@@ -32,3 +32,10 @@ import HashedNode
 import HashedPrettify (prettify, showExp)
 import HashedUtils
 
+-- | Interval generation based on the value mapped to the function
+intervalGen ::
+    Double -> -- ^ The value mapped to the function
+    Double -> -- ^ Radius for generating the interval
+    [Double]  -- ^ Output range
+intervalGen a b = [(a - b),a..(a + b)]
+
