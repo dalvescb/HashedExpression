@@ -175,6 +175,24 @@ aConst shape val = (IM.fromList [(h, node)], h)
     node = (shape, Const val)
     h = hash node
 
+---- |  Interval Value Maps that will be used for error calculation
+----
+--data IntervalValMaps =
+--    IntervalValMaps
+--        { ivm0 :: Map String [Double]
+--        , ivm1 :: Map String (Array Int [Double])
+--        , ivm2 :: Map String (Array (Int, Int) [Double])
+--        , ivm3 :: Map String (Array (Int, Int, Int) [Double])
+--        }
+--    deriving (Eq, Show, Ord)
+--
+--
+---- | Generating an empty interval value map
+--emptyIVms :: IntervalValMaps
+--emptyIVms =
+--    IntervalValMaps {ivm0 = Map.empty, ivm1 = Map.empty, ivm2 = Map.empty, ivm3 = Map.empty}
+
+
 -- |
 --
 data ValMaps =
@@ -185,6 +203,7 @@ data ValMaps =
         , vm3 :: Map String (Array (Int, Int, Int) Double)
         }
     deriving (Eq, Show, Ord)
+
 
 emptyVms :: ValMaps
 emptyVms =
