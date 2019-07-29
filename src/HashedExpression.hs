@@ -143,6 +143,7 @@ class NumOp a where
     acosh :: a -> a
     atanh :: a -> a
     (/) :: a -> a -> a
+    sigmoid :: a -> a
 
 class ComplexRealOp r c | r -> c, c -> r where
     (+:) :: r -> r -> c
@@ -154,6 +155,9 @@ class InnerProductSpaceOp a b c | a b -> c where
 
 class RotateOp k a | a -> k where
     rotate :: k -> a -> a
+
+--class SigmoidOp a | a -> a where
+--    sigmoid :: a -> a
 
 infixl 6 +, -
 
@@ -251,4 +255,5 @@ data Node
     -- MARK: Piecewise
     | Piecewise [Double] ConditionArg [BranchArg]
     | Rotate RotateAmount Arg
+    | Sigmoid Arg
     deriving (Show, Eq, Ord)

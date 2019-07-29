@@ -158,6 +158,7 @@ instance Evaluable Zero R Double where
                 Asinh arg -> asinh (eval valMap (expZeroR mp arg))
                 Acosh arg -> acosh (eval valMap (expZeroR mp arg))
                 Atanh arg -> atanh (eval valMap (expZeroR mp arg))
+                Sigmoid arg -> sigmoid (eval valMap (expZeroR mp arg))
                 RealPart arg -> realPart (eval valMap (expZeroC mp arg))
                 ImagPart arg -> imagPart (eval valMap (expZeroC mp arg))
                 InnerProd R arg1 arg2 ->
@@ -197,6 +198,8 @@ instance Evaluable Zero R Double where
                     let cdt = eval valMap $ expZeroR mp conditionArg
                         branches = map (eval valMap . expZeroR mp) branchArgs
                      in chooseBranch marks cdt branches
+
+--                    in ((const 1) * (((exp (esq)) / ((const 1) + (exp ((const 8) * (esq)))))))
                 _ ->
                     error
                         ("expression structure Scalar R is wrong " ++ prettify e)
@@ -259,6 +262,9 @@ instance Evaluable Zero C (Complex Double) where
                     let cdt = eval valMap $ expZeroR mp conditionArg
                         branches = map (eval valMap . expZeroC mp) branchArgs
                      in chooseBranch marks cdt branches
+--                Sigmoid expVal ->
+--                    let esq = expVal * expVal
+--                    in (const 1.89) * (((exp (esq)) / ((const 1) + (exp ((const 8) * (esq))))))
                 _ ->
                     error
                         ("expression structure Scalar C is wrong " ++ prettify e)
@@ -328,6 +334,7 @@ instance Evaluable One R (Array Int Double) where
                     Atanh arg -> fmap atanh . eval valMap $ expOneR mp arg
                     RealPart arg -> fmap realPart . eval valMap $ expOneC mp arg
                     ImagPart arg -> fmap imagPart . eval valMap $ expOneC mp arg
+                    Sigmoid arg -> fmap sigmoid . eval valMap $ expOneR mp arg
                     -- Rotate rA arg ->
                     Piecewise marks conditionArg branchArgs ->
                         let cdt = eval valMap $ expOneR mp conditionArg
@@ -341,6 +348,9 @@ instance Evaluable One R (Array Int Double) where
                                 ]
                     Rotate [amount] arg ->
                         rotate1D size amount (eval valMap $ expOneR mp arg)
+--                    Sigmoid expVal ->
+--                        let esq = expVal * expVal
+--                        in (const 1.89) * (((exp (esq)) / ((const 1) + (exp ((const 8) * (esq))))))
                     _ -> error "expression structure One R is wrong"
         | otherwise = error "one r but shape is not [size] ??"
 
@@ -407,6 +417,9 @@ instance Evaluable One C (Array Int (Complex Double)) where
                                 ]
                     Rotate [amount] arg ->
                         rotate1D size amount (eval valMap $ expOneC mp arg)
+--                    Sigmoid expVal ->
+--                        let esq = expVal * expVal
+--                        in (const 1.89) * (((exp (esq)) / ((const 1) + (exp ((const 8) * (esq))))))
                     _ -> error "expression structure One C is wrong"
         | otherwise = error "one C but shape is not [size] ??"
 
@@ -482,6 +495,7 @@ instance Evaluable Two R (Array (Int, Int) Double) where
                     Atanh arg -> fmap atanh . eval valMap $ expTwoR mp arg
                     RealPart arg -> fmap realPart . eval valMap $ expTwoC mp arg
                     ImagPart arg -> fmap imagPart . eval valMap $ expTwoC mp arg
+                    Sigmoid arg -> fmap sigmoid . eval valMap $ expTwoR mp arg
                     Piecewise marks conditionArg branchArgs ->
                         let cdt = eval valMap $ expTwoR mp conditionArg
                             branches = map (eval valMap . expTwoR mp) branchArgs
@@ -501,6 +515,9 @@ instance Evaluable Two R (Array (Int, Int) Double) where
                             (size1, size2)
                             (amount1, amount2)
                             (eval valMap $ expTwoR mp arg)
+--                    Sigmoid expVal ->
+--                        let esq = expVal * expVal
+--                        in (const 1.89) * (((exp (esq)) / ((const 1) + (exp ((const 8) * (esq))))))
                     _ -> error "expression structure Two R is wrong"
         | otherwise = error "Two r but shape is not [size1, size2] ??"
 
@@ -579,6 +596,9 @@ instance Evaluable Two C (Array (Int, Int) (Complex Double)) where
                             (size1, size2)
                             (amount1, amount2)
                             (eval valMap $ expTwoC mp arg)
+--                    Sigmoid expVal ->
+--                        let esq = expVal * expVal
+--                        in (const 1.89) * (((exp (esq)) / ((const 1) + (exp ((const 8) * (esq))))))
                     _ -> error "expression structure Two C is wrong"
         | otherwise = error "Two C but shape is not [size1, size2] ??"
 
@@ -657,6 +677,7 @@ instance Evaluable Three R (Array (Int, Int, Int) Double) where
                     Asinh arg -> fmap asinh . eval valMap $ expThreeR mp arg
                     Acosh arg -> fmap acosh . eval valMap $ expThreeR mp arg
                     Atanh arg -> fmap atanh . eval valMap $ expThreeR mp arg
+                    Sigmoid arg -> fmap sigmoid . eval valMap $ expThreeR mp arg
                     RealPart arg ->
                         fmap realPart . eval valMap $ expThreeC mp arg
                     ImagPart arg ->
@@ -682,6 +703,9 @@ instance Evaluable Three R (Array (Int, Int, Int) Double) where
                             (size1, size2, size3)
                             (amount1, amount2, amount3)
                             (eval valMap $ expThreeR mp arg)
+--                    Sigmoid expVal ->
+--                        let esq = expVal * expVal
+--                        in (const 1.89) * (((exp (esq)) / ((const 1) + (exp ((const 8) * (esq))))))
                     _ -> error "expression structure Three R is wrong"
         | otherwise = error "Three r but shape is not [size1, size2, size3] ??"
 
@@ -770,6 +794,9 @@ instance Evaluable Three C (Array (Int, Int, Int) (Complex Double)) where
                             (size1, size2, size3)
                             (amount1, amount2, amount3)
                             (eval valMap $ expThreeC mp arg)
+--                    Sigmoid expVal ->
+----                        let esq = expVal * expVal in
+--                         (const 1.89) * (((exp (expVal ^ 2)) / ((const 1) + (exp ((const 8) * (expVal ^ 2))))))
                     _ -> error "expression structure Three C is wrong"
         | otherwise = error "Three C but shape is not [size1, size2, size3] ??"
 
@@ -834,3 +861,15 @@ rotate3D (size1, size2, size3) (amount1, amount2, amount3) arr =
         , j <- [0 .. size2 - 1]
         , k <- [0 .. size3 - 1]
         ]
+
+--Sigmoid expVal ->
+--sigmoid :: Double -> Double
+--sigmoid expVal =
+--   let esq = expVal * expVal
+--   in (const 1.89) * ((exp (esq)) / ((const 1) + (exp ((const 8) * (esq)))))
+
+
+sigmoid :: Double -> Double
+sigmoid expVal =
+ let esq = expVal ^ 2
+ in ((2.00) * ((exp (esq)) / ( 1 + (exp (8.00 * (esq))))))

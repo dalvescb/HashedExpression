@@ -211,3 +211,4 @@ hiddenPrettify pastable (mp, n) =
             Rotate amount arg ->
                 T.concat ["rotate", T.pack . show $ amount, innerPrettify arg]
             Power x arg -> T.concat [innerPrettify arg, "^", T.pack $ show x]
+            Sigmoid arg -> T.concat ["sigmoid", innerPrettify arg]

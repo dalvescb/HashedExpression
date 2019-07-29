@@ -39,6 +39,7 @@ nodeElementType node mp =
         InnerProd et _ _ -> et
         Piecewise _ _ branches -> retrieveElementType (head branches) mp
         Rotate _ arg -> retrieveElementType arg mp
+        Sigmoid arg -> retrieveElementType arg mp
 
 -- | For ordering things inside Sum or Product so we can write rules like
 --   restOfProduct ~* (x +: y) ~* (z +: w) |.~~~~~~> restOfProduct ~*
@@ -78,6 +79,7 @@ nodeTypeWeight node =
         InnerProd {} -> 25
         Piecewise {} -> 26
         Rotate {} -> 27
+        Sigmoid {} -> 28
 
 -- |
 --
@@ -119,6 +121,7 @@ nodeArgs node =
         InnerProd _ arg1 arg2 -> [arg1, arg2]
         Piecewise _ conditionArg branches -> conditionArg : branches
         Rotate _ arg -> [arg]
+        Sigmoid arg -> [arg]
 
 -- | Auxiliary functions for operations
 --

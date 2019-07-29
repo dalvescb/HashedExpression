@@ -125,6 +125,7 @@ data Pattern
     | PSumRest ListCapture [Pattern]
     | PPower Pattern PatternPower
     | PRotate [Pattern] Pattern
+    | PSigmoid Pattern
     deriving (Show)
 
 -- |
@@ -179,6 +180,7 @@ instance NumOp Pattern where
     acosh = PAcosh
     atanh = PAtanh
     (/) = PDiv
+    sigmoid = PSigmoid
 
 instance ComplexRealOp Pattern Pattern where
     (+:) = PRealImag
@@ -190,6 +192,9 @@ instance InnerProductSpaceOp Pattern Pattern Pattern where
 
 instance PowerOp Pattern PatternPower where
     (^) = PPower
+
+--instance SigmoidOP Pattern where
+--    sigmoid = PSigmoid
 
 -- | Pattern List
 --
@@ -382,6 +387,8 @@ branches = PListHole id 2
 headL :: PatternList -> Pattern
 headL = PHead
 
+sigmoid :: Pattern -> Pattern
+sigmoid = PSigmoid
 -- |
 --
 restOfProduct :: Pattern
@@ -520,6 +527,7 @@ match (mp, n) outerWH =
                               Map.empty
                               (Map.fromList [(powerCapture, x)]) ->
                     Just $ unionMatch matchInner matchPower
+            (Sigmoid arg, PSigmoid wh) -> recursiveAndCombine [arg] [wh]
             _ -> Nothing
 
 -- |
@@ -618,6 +626,7 @@ buildFromPattern exp@(originalMp, originalN) match = buildFromPattern'
             PPower sp pp ->
                 let val = buildFromPatternPower match pp
                  in applyDiff' (unary (Power val)) [buildFromPattern' sp]
+--            PSigmoid sp -> applyDiff' (binary Sigmoid) [buildFromPattern' sp]
             _ ->
                 error
                     "The right hand-side of substitution has something that we don't support yet"

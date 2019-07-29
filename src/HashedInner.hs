@@ -343,6 +343,7 @@ combineChildrenDiffs sortSumMul contextMp n childrenDiffs
                 combine (binaryET InnerProd (ElementSpecific et))
             Piecewise marks _ _ -> combine (conditionAry (Piecewise marks))
             Rotate amount _ -> combine (unary (Rotate amount))
+            Sigmoid _ -> combine (unary Sigmoid)
   where
     (oldShape, oldNode) = retrieveInternal n contextMp
     oldChildren = nodeArgs oldNode

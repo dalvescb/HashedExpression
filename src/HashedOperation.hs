@@ -181,6 +181,7 @@ instance (DimensionType d) => NumOp (Expression d R) where
     acosh = applyUnary (unary Acosh)
     atanh = applyUnary (unary Atanh)
     (/) e1 e2 = ensureSameShape e1 e2 $ e1 * e2 ^ (-1)
+    sigmoid = applyUnary (unary Sigmoid)
 
 -- | inner product
 --
@@ -250,3 +251,8 @@ instance (ElementType et) =>
          RotateOp (Int, Int, Int) (Expression Three et) where
     rotate :: (Int, Int, Int) -> Expression Three et -> Expression Three et
     rotate (x, y, z) = applyUnary . unary $ Rotate [x, y, z]
+
+
+--instance (DimensionType d) => SigmoidOp Expression d R where --Might change later
+--    sigmoid :: (DimensionType d) => (Expression d R) -> (Expression d R)
+--    sigmoid x = (const 1) * (((exp (x ^ 2)) / ((const 1) + (exp ((const 8) * (x ^ 2))))))
