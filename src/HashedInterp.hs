@@ -158,7 +158,7 @@ instance Evaluable Zero R Double where
                 Asinh arg -> asinh (eval valMap (expZeroR mp arg))
                 Acosh arg -> acosh (eval valMap (expZeroR mp arg))
                 Atanh arg -> atanh (eval valMap (expZeroR mp arg))
-                Sigmoid arg -> sigmoid (eval valMap (expZeroR mp arg))
+                Sigmoid arg -> sigmoidOp (eval valMap (expZeroR mp arg))
                 RealPart arg -> realPart (eval valMap (expZeroC mp arg))
                 ImagPart arg -> imagPart (eval valMap (expZeroC mp arg))
                 InnerProd R arg1 arg2 ->
@@ -334,7 +334,7 @@ instance Evaluable One R (Array Int Double) where
                     Atanh arg -> fmap atanh . eval valMap $ expOneR mp arg
                     RealPart arg -> fmap realPart . eval valMap $ expOneC mp arg
                     ImagPart arg -> fmap imagPart . eval valMap $ expOneC mp arg
-                    Sigmoid arg -> fmap sigmoid . eval valMap $ expOneR mp arg
+                    Sigmoid arg -> sigmoid1d (eval valMap $ expOneR mp arg)
                     -- Rotate rA arg ->
                     Piecewise marks conditionArg branchArgs ->
                         let cdt = eval valMap $ expOneR mp conditionArg
@@ -495,7 +495,7 @@ instance Evaluable Two R (Array (Int, Int) Double) where
                     Atanh arg -> fmap atanh . eval valMap $ expTwoR mp arg
                     RealPart arg -> fmap realPart . eval valMap $ expTwoC mp arg
                     ImagPart arg -> fmap imagPart . eval valMap $ expTwoC mp arg
-                    Sigmoid arg -> fmap sigmoid . eval valMap $ expTwoR mp arg
+                    Sigmoid arg -> sigmoid2d (eval valMap $ expTwoR mp arg)
                     Piecewise marks conditionArg branchArgs ->
                         let cdt = eval valMap $ expTwoR mp conditionArg
                             branches = map (eval valMap . expTwoR mp) branchArgs
@@ -677,7 +677,7 @@ instance Evaluable Three R (Array (Int, Int, Int) Double) where
                     Asinh arg -> fmap asinh . eval valMap $ expThreeR mp arg
                     Acosh arg -> fmap acosh . eval valMap $ expThreeR mp arg
                     Atanh arg -> fmap atanh . eval valMap $ expThreeR mp arg
-                    Sigmoid arg -> fmap sigmoid . eval valMap $ expThreeR mp arg
+                    Sigmoid arg -> sigmoid3d (eval valMap $ expThreeR mp arg)
                     RealPart arg ->
                         fmap realPart . eval valMap $ expThreeC mp arg
                     ImagPart arg ->
@@ -869,7 +869,19 @@ rotate3D (size1, size2, size3) (amount1, amount2, amount3) arr =
 --   in (const 1.89) * ((exp (esq)) / ((const 1) + (exp ((const 8) * (esq)))))
 
 
-sigmoid :: Double -> Double
-sigmoid expVal =
+sigmoidOp :: Double -> Double
+sigmoidOp expVal =
  let esq = expVal ^ 2
  in ((2.00) * ((exp (esq)) / ( 1 + (exp (8.00 * (esq))))))
+
+sigmoid1d :: Array (Int) Double -> Array (Int) Double
+sigmoid1d expVal =
+ listArray (bounds expVal) [sigmoidOp (expVal ! i) | i <- indices expVal]
+
+sigmoid2d :: Array (Int, Int) Double -> Array (Int, Int) Double
+sigmoid2d expVal =
+ listArray (bounds expVal) [sigmoidOp (expVal ! (i,j)) | (i,j) <- indices expVal]
+
+sigmoid3d :: Array (Int, Int, Int) Double -> Array (Int, Int, Int) Double
+sigmoid3d expVal =
+ listArray (bounds expVal) [sigmoidOp (expVal ! (i,j,k)) | (i,j,k) <- indices expVal]

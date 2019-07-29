@@ -8,7 +8,7 @@ import qualified Data.IntMap.Strict as IM
 import Data.Map (fromList, union)
 import qualified Data.Set as Set
 import HashedDerivative
-import HashedExpression hiding (sigmoid)
+import HashedExpression
 import HashedInterp
 import HashedOperation hiding (product, sum)
 import qualified HashedOperation
@@ -85,26 +85,40 @@ main
 --    let exp = x *. y
         let exp1 = ((const 1) / (const 1 + exp (negate (x))))
         let exp2 = s * (((exp (x ^ 2)) / ((const 1) + (exp ((const 8) * (x ^ 2))))))
-        let exp3 =  sigmoid 2.0
+        let exp3 =  sigmoid e1
         let valMaps =
                 ValMaps
-                    { vm0 = fromList [("a0", 2.0)]
+                    { vm0 = fromList [("a", 2.0)]
                     , vm1 =
                           fromList
-                              [ ( "a1"
-                                , array
-                                      (0, 9)
-                                      [ (0, -34.014382143320645)
-                                      , (1, -14.383754829952368)
-                                      , (2, 13.839044225244418)
-                                      , (3, 39.23444270399285)
-                                      , (4, -8.346196105971842)
-                                      , (5, 32.021897482465405)
-                                      , (6, -2.099207335357949)
-                                      , (7, 18.89977709356699)
-                                      , (8, 19.849842558276876)
-                                      , (9, -11.034400538586366)
-                                      ])
+                                [ ( "a1"
+                                  , array
+                                         (0, 9)
+                                         [ (0, -3)
+                                         , (1, -1)
+                                         , (2, 1)
+                                         , (3, 3)
+                                         , (4, -8)
+                                         , (5, 4)
+                                         , (6, -2)
+                                         , (7, 2)
+                                         , (8, 9)
+                                         , (9, -4)
+                                         ])
+--                              [ ( "a1"
+--                                , array
+--                                      (0, 9)
+--                                      [ (0, -34.014382143320645)
+--                                      , (1, -14.383754829952368)
+--                                      , (2, 13.839044225244418)
+--                                      , (3, 39.23444270399285)
+--                                      , (4, -8.346196105971842)
+--                                      , (5, 32.021897482465405)
+--                                      , (6, -2.099207335357949)
+--                                      , (7, 18.89977709356699)
+--                                      , (8, 19.849842558276876)
+--                                      , (9, -11.034400538586366)
+--                                      ])
                               , ( "e1"
                                 , array
                                       (0, 9)
@@ -279,6 +293,6 @@ main
                     }
         showExp $ exp1
         showExp $ exp2
-        print $ exp3
---        print $ eval valMaps exp3
+--        print $ exp3
+        print $ eval valMaps exp3
         -- print $ eval valMaps (simplify exp1)

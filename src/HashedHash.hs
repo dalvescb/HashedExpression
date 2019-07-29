@@ -98,6 +98,7 @@ hash (shape, node) =
             Rotate amount arg ->
                 offsetHash 29 . hashString' $
                 (intercalate "a" . map show $ amount) ++ "a" ++ show arg
+            Sigmoid arg -> offsetHash 30 . hashString' $ show arg
 
 -- |
 --
