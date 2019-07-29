@@ -85,7 +85,7 @@ main
 --    let exp = x *. y
         let exp1 = ((const 1) / (const 1 + exp (negate (x))))
         let exp2 = s * (((exp (x ^ 2)) / ((const 1) + (exp ((const 8) * (x ^ 2))))))
-        let exp3 =  (sigmoid a0)
+        let exp3 =  sigmoid 2.0
         let valMaps =
                 ValMaps
                     { vm0 = fromList [("a0", 2.0)]
@@ -279,6 +279,6 @@ main
                     }
         showExp $ exp1
         showExp $ exp2
---        showExp $ exp3
-        print $ eval valMaps exp3
+        print $ exp3
+--        print $ eval valMaps exp3
         -- print $ eval valMaps (simplify exp1)
