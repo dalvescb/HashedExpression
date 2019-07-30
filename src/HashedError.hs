@@ -46,16 +46,25 @@ intervalGen ::
 intervalGen a b = [(a - b),a..(a + b)]
 
 -- | Class for calculating the intervals
-class InterValable a b | a -> b where
-  interval :: a -> Double -> b
+class InterValable a b| a -> b where
+  myInterval :: Double -> a -> b
 
 instance InterValable Double [Double] where
-  interval :: Double -> Double -> [Double]
-  interval val radius = intervalGen val radius
+  myInterval :: Double -> Double -> [Double]
+  myInterval radius val = intervalGen val radius
 
 instance InterValable (Array Int Double) (Array Int [Double]) where
-  interval :: (Array Int Double) -> Double -> (Array Int [Double])
-  interval val radius = listArray (bounds val) [ (intervalGen (val ! i) radius) | i <- indices val ]
+  myInterval :: Double  -> (Array Int Double) -> (Array Int [Double])
+  myInterval radius val = listArray (bounds val) [ intervalGen (val ! i) radius | i <- indices val ]
+
+instance InterValable (Array (Int,Int) Double) (Array (Int,Int) [Double]) where
+  myInterval :: Double  -> (Array (Int,Int) Double) -> (Array (Int,Int) [Double])
+  myInterval radius val = listArray (bounds val) [ intervalGen (val ! (i,j)) radius | (i,j) <- indices val ]
+
+instance InterValable (Array (Int,Int,Int) Double) (Array (Int,Int,Int) [Double]) where
+    myInterval :: Double  -> (Array (Int,Int,Int) Double) -> (Array (Int,Int,Int) [Double])
+    myInterval radius val = listArray (bounds val) [ intervalGen (val ! (i,j,k)) radius | (i,j,k) <- indices val ]
+
 
 -- | This operation emulates the mathematical operation
 -- | Turn expression to the right type
