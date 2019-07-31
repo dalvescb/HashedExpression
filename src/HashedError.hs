@@ -38,6 +38,12 @@ import HashedNode
 import HashedPrettify (prettify, showExp)
 import HashedUtils
 
+
+--  ==================================
+--  ==        Error Analysis        ==
+--  ==================================
+
+
 -- | Interval generation based on the value mapped to the function
 intervalGen ::
     Double -> -- ^ The value mapped to the function
@@ -45,17 +51,71 @@ intervalGen ::
     [Double]  -- ^ Output range
 intervalGen a b = [(a - b),a..(a + b)]
 
+{--
+    ==============================================================
+    ==  Functions for doing statistical calculation over lists  ==
+    ==============================================================
+-}
+
+-- | For calculation of length for the list
+length' = fromIntegral . length
+
+-- | Calculating the mean of the interval
+mean :: [Double] -> Double
+mean list =
+  (/) <$> sum <*> length' $ list -- Calculating the amount of Mean
+
+-- | Calculating the variance of an interval
+variance :: [Double] -> Double
+variance list =
+    let
+      avg = mean list
+      summedElements = sum (map (\x -> (x - avg) ^ 2) list) -- Nominator for the Std calculation
+      lengthX = length' list -- Denominator for Std calculation
+    in
+    do summedElements / lengthX
+
+-- | Calculate standard deviation for an interval
+stdDev ::
+  [Double] -> -- ^ Target Interval
+   Double -- ^ out put std value
+stdDev list = sqrt $ variance list
+
+-- | Element wise adding the elements of List of Lists and create a new List
+addLists :: Num a => [[a]] -> [a]
+addLists [] = []
+addLists (xs:[]) = xs
+addLists (xs:xss) = zipWith (+) xs (addLists xss)
+
+{--
+    ============================
+    ==  Interval Calculation  ==
+    ============================
+-}
+
 -- | Class for calculating the intervals
-class InterValable a b | a -> b where
-  interval :: a -> Double -> b
+class InterValable a b | b -> a where
+  getInterval :: Double -> a -> b
 
+-- | Instance of function "getInterval" for generating a interval of double numbers based on an double input
 instance InterValable Double [Double] where
-  interval :: Double -> Double -> [Double]
-  interval val radius = intervalGen val radius
+  getInterval :: Double -> Double -> [Double]
+  getInterval val radius = intervalGen val radius
 
+-- | Instance of function "getInterval" for generating a interval of a 1d array numbers
 instance InterValable (Array Int Double) (Array Int [Double]) where
-  interval :: (Array Int Double) -> Double -> (Array Int [Double])
-  interval val radius = listArray (bounds val) [ (intervalGen (val ! i) radius) | i <- indices val ]
+  getInterval :: Double -> (Array Int Double)  -> (Array Int [Double])
+  getInterval radius val = listArray (bounds val) [ (intervalGen (val ! i) radius) | i <- indices val ]
+
+-- | Instance of function "getInterval" for generating a interval of a 2d array numbers
+instance InterValable (Array (Int,Int) Double) (Array (Int,Int) [Double]) where
+  getInterval :: Double -> (Array (Int,Int) Double) ->  (Array (Int,Int) [Double])
+  getInterval radius val  = listArray (bounds val) [ (intervalGen (val ! (i,j)) radius) | (i,j) <- indices val ]
+
+-- | Instance of function "getInterval" for generating a interval of a 3d array numbers
+instance InterValable (Array (Int,Int,Int) Double) (Array (Int,Int,Int) [Double]) where
+   getInterval :: Double -> (Array (Int,Int,Int) Double) ->  (Array (Int,Int,Int) [Double])
+   getInterval radius val  = listArray (bounds val) [ (intervalGen (val ! (i,j,k)) radius) | (i,j,k) <- indices val ]
 
 -- | This operation emulates the mathematical operation
 -- | Turn expression to the right type
@@ -95,22 +155,25 @@ chooseBranch marks val branches
 
 -- | These should be commented properly.
 --
-class Evaluable d rc output | d rc -> output where
-  eval :: ValMaps -> Expression d rc -> output
+class IntervalEvaluable d rc output | d rc -> output where
+  intervalEval :: ValMaps -> Double -> Expression d rc -> output
+
+
 
 -- |
 --
-instance Evaluable Zero R Double where
-    eval :: ValMaps -> Expression Zero R -> Double
-    eval valMap e@(Expression n mp)
+instance IntervalEvaluable Zero R (Double,[Double]) where
+    intervalEval :: ValMaps -> Double -> Expression Zero R -> (Double,[Double])
+    intervalEval valMap radius e@(Expression n mp)
         | [] <- retrieveShape n mp =
             case retrieveNode n mp of
                 Var name ->
                     case Map.lookup name $ vm0 valMap of
-                        Just val -> val
+                        Just val -> (stdDev $ getInterval val radius, getInterval val radius)
                         _ -> error "no value associated with the variable"
-                Const val -> val
-                Sum R args -> sum . map (eval valMap . expZeroR mp) $ args
+                Const val -> (0,[val,val,val])
+                Sum R args -> let resultInterval = map (snd . intervalEval valMap radius . expZeroR mp) args
+                              in ((stdDev . addLists) resultInterval, addLists resultInterval)
 --                Mul R args -> product . map (eval valMap . expZeroR mp) $ args
 --                Neg R arg -> -(eval valMap $ expZeroR mp arg)
 --                Scale R arg1 arg2 ->
