@@ -344,6 +344,7 @@ combineChildrenDiffs sortSumMul contextMp n childrenDiffs
             Piecewise marks _ _ -> combine (conditionAry (Piecewise marks))
             Rotate amount _ -> combine (unary (Rotate amount))
             Sigmoid _ -> combine (unary Sigmoid)
+--            Sinc _ _ _ -> combine (nary Sinc)
   where
     (oldShape, oldNode) = retrieveInternal n contextMp
     oldChildren = nodeArgs oldNode

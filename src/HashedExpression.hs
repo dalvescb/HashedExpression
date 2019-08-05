@@ -145,6 +145,7 @@ class NumOp a where
     (/) :: a -> a -> a
     sigmoid :: a -> a
 
+
 class ComplexRealOp r c | r -> c, c -> r where
     (+:) :: r -> r -> c
     xRe :: c -> r
@@ -158,6 +159,9 @@ class RotateOp k a | a -> k where
 
 --class SigmoidOp a | a -> a where
 --    sigmoid :: a -> a
+--
+--class SincOp  b a | a b -> a where
+--    sinc :: a -> b -> b -> a
 
 infixl 6 +, -
 
@@ -184,6 +188,9 @@ type ConditionArg = Int
 
 type BranchArg = Int
 
+type PixelArg = Int
+
+type FilterArg = [Int]
 -- | Rotation in each dimension.
 -- | Property:  the length of this must match the dimension of the data
 type RotateAmount = [Int]
@@ -256,4 +263,5 @@ data Node
     | Piecewise [Double] ConditionArg [BranchArg]
     | Rotate RotateAmount Arg
     | Sigmoid Arg
+--    | Sinc FilterArg PixelArg Arg
     deriving (Show, Eq, Ord)
