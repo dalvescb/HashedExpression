@@ -51,11 +51,22 @@ import HashedVar
 import Test.Hspec
 import Test.QuickCheck hiding (scale)
 
-sum1 :: (DimensionType d, Addable et) => [Expression d et] -> Expression d et
-sum1 = fromJust . HashedOperation.sum
+sumOver :: (DimensionType d, Addable et) => [Expression d et] -> Expression d et
+sumOver = fromJust . HashedOperation.sum
+
+sqrtNorm :: DimensionType d => Expression d R -> Expression d R
+sqrtNorm = sqrt
+
+powerSquare ::(DimensionType d, NumType et) => Expression d et -> Expression d et
+powerSquare x = x * x
+
+normTwo :: DimensionType d => [Expression d et] -> Expression d R
+normTwo x = sqrtNorm (sumOver x)
 
 prod1 :: (DimensionType d, Addable et) => [Expression d et] -> Expression d et
 prod1 = fromJust . HashedOperation.sum
+
+
 
 --
 --main = do
@@ -83,8 +94,8 @@ main
 --                          ]
 --                } :: Expression Zero R
 --    let exp = x *. y
-        let exp1 = ((const 1) / (const 1 + exp (negate (x))))
-        let exp2 = s * (((exp (x ^ 2)) / ((const 1) + (exp ((const 8) * (x ^ 2))))))
+        let fittingFunction = ((const 1) / (const 1 + exp (negate (x))))
+        -- let requlizerFunction =
         let exp3 =  sigmoid e1
         let valMaps =
                 ValMaps
@@ -291,8 +302,8 @@ main
                     , vm2 = fromList []
                     , vm3 = fromList []
                     }
-        showExp $ exp1
-        showExp $ exp2
+        -- showExp $ exp1
+        -- showExp $ exp2
 --        print $ exp3
         print $ eval valMaps exp3
         -- print $ eval valMaps (simplify exp1)
