@@ -181,6 +181,7 @@ instance NumOp Pattern where
     atanh = PAtanh
     (/) = PDiv
     sigmoid = PSigmoid
+--    sinc = PSinc
 
 instance ComplexRealOp Pattern Pattern where
     (+:) = PRealImag
@@ -195,6 +196,9 @@ instance PowerOp Pattern PatternPower where
 
 --instance SigmoidOP Pattern where
 --    sigmoid = PSigmoid
+
+--instance SincOp [Pattern] Pattern Pattern where
+--    sinc = PSinc
 
 -- | Pattern List
 --
@@ -528,6 +532,7 @@ match (mp, n) outerWH =
                               (Map.fromList [(powerCapture, x)]) ->
                     Just $ unionMatch matchInner matchPower
             (Sigmoid arg, PSigmoid wh) -> recursiveAndCombine [arg] [wh]
+--            (Sinc _ args, PSinc wh) -> recursiveAndCombine [arg] [wh]
             _ -> Nothing
 
 -- |
@@ -627,6 +632,7 @@ buildFromPattern exp@(originalMp, originalN) match = buildFromPattern'
                 let val = buildFromPatternPower match pp
                  in applyDiff' (unary (Power val)) [buildFromPattern' sp]
 --            PSigmoid sp -> applyDiff' (binary Sigmoid) [buildFromPattern' sp]
+--            PSinc _ _ _ -> error "Pattern Sinc function doesnt have any diff rules yet"
             _ ->
                 error
                     "The right hand-side of substitution has something that we don't support yet"

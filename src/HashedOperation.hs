@@ -256,3 +256,6 @@ instance (ElementType et) =>
 --instance (DimensionType d) => SigmoidOp Expression d R where --Might change later
 --    sigmoid :: (DimensionType d) => (Expression d R) -> (Expression d R)
 --    sigmoid x = (const 1) * (((exp (x ^ 2)) / ((const 1) + (exp ((const 8) * (x ^ 2))))))
+
+--sinc :: (Int,Int) -> Int -> Int -> (Int)
+--sinc (i,j) x z = applyNary . nary $ Sinc (i,j) x z

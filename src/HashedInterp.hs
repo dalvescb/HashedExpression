@@ -518,6 +518,8 @@ instance Evaluable Two R (Array (Int, Int) Double) where
 --                    Sigmoid expVal ->
 --                        let esq = expVal * expVal
 --                        in (const 1.89) * (((exp (esq)) / ((const 1) + (exp ((const 8) * (esq))))))
+--                    Sinc [fil1, fil2] pix1 arg ->
+--                        sinc2D (filter1, filter2) pix1 (eval valMap $ expTwoR mp arg)
                     _ -> error "expression structure Two R is wrong"
         | otherwise = error "Two r but shape is not [size1, size2] ??"
 
@@ -885,3 +887,6 @@ sigmoid2d expVal =
 sigmoid3d :: Array (Int, Int, Int) Double -> Array (Int, Int, Int) Double
 sigmoid3d expVal =
  listArray (bounds expVal) [sigmoidOp (expVal ! (i,j,k)) | (i,j,k) <- indices expVal]
+
+--sinc2D :: Array (Int, Int) Int (Int) (Int) -> Array (Int, Int) Double
+--sinc2D (i,j) x z = undefined
