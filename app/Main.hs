@@ -51,6 +51,8 @@ import HashedUtils
 import HashedVar
 import Test.Hspec
 import Test.QuickCheck hiding (scale)
+import HashedError
+import HashedErrorUtils
 
 
 
@@ -70,48 +72,52 @@ prod1 = fromJust . HashedOperation.sum
 main
 --    let exp = x * (x1 * y1 * (s *. z1)) <.> sin x1 * z
  =
---  let valMaps = ValMaps
---                      { vm0 = fromList [("a",-34.014382143320645)
---                                , ("e",16.28066712773697)
---                                , ("f",-20.563120542303395)
---                                , ("l",-42.60173642164761)
---                                , ("m",24.88803997980011)
---                                , ("n",14.668148863837619)
---                                , ("q",33.35634608052121)
---                                , ("r",-25.57446677272314)
---                                , ("t",22.5565441852349)
---                                , ("u",-0.567665380786866)
---                                , ("v",40.71643373865157)
---                                , ("w",-41.553065619799)
---                                , ("y",8.166721044435123)
---                                ]
---                      , vm1 = fromList []
---                      , vm2 = fromList []
---                      , vm3 = fromList []
---                      }
+     let  exp1 = a + e
+          valMaps = ValMaps
+                      { vm0 = fromList [("a",-34.014382143320645)
+                                , ("e",16.28066712773697)
+                                , ("f",-20.563120542303395)
+                                , ("l",-42.60173642164761)
+                                , ("m",24.88803997980011)
+                                , ("n",14.668148863837619)
+                                , ("q",33.35634608052121)
+                                , ("r",-25.57446677272314)
+                                , ("t",22.5565441852349)
+                                , ("u",-0.567665380786866)
+                                , ("v",40.71643373865157)
+                                , ("w",-41.553065619799)
+                                , ("y",8.166721044435123)
+                                ]
+                      , vm1 = fromList []
+                      , vm2 = fromList []
+                      , vm3 = fromList []
+                      }
+     in
+     do print $ (errorEval valMaps (0.05) 0 exp1 :: ErrorType)
+
 --   let exp1 = (a) ^ 2
 --   in
 --   do print $ eval valMaps exp1
- do
-    let exp =
-            Expression
-                { exIndex = 4615994729
-                , exMap =
-                      IM.fromList
-                          [ (4614, ([], Var "g"))
-                          , (5029, ([], Var "l"))
-                          , (6025, ([], Var "x"))
-                          , (2999986292, ([], Const 0.0))
-                          , ( 4615994729
-                            , ([], Mul R [5418990404, 4815047263, 27399273777]))
-                          , (4815047263, ([], Mul R [5029, 6025]))
-                          , (5418990404, ([], Power 2 2999986292))
-                          , (27399273777, ([], InnerProd R 4614 5029))
-                          ]
-                } :: Expression Zero R
---    let exp = x *. y
-    showExp exp
-    showExpDebug . collectDifferentials . exteriorDerivative allVars $ exp
+-- do
+--    let exp =
+--            Expression
+--                { exIndex = 4615994729
+--                , exMap =
+--                      IM.fromList
+--                          [ (4614, ([], Var "g"))
+--                          , (5029, ([], Var "l"))
+--                          , (6025, ([], Var "x"))
+--                          , (2999986292, ([], Const 0.0))
+--                          , ( 4615994729
+--                            , ([], Mul R [5418990404, 4815047263, 27399273777]))
+--                          , (4815047263, ([], Mul R [5029, 6025]))
+--                          , (5418990404, ([], Power 2 2999986292))
+--                          , (27399273777, ([], InnerProd R 4614 5029))
+--                          ]
+--                } :: Expression Zero R
+----    let exp = x *. y
+--    showExp exp
+--    showExpDebug . collectDifferentials . exteriorDerivative allVars $ exp
 
 --let valMaps = ValMaps
 --                      { vm0 = fromList [("a1",-34.014382143320645)

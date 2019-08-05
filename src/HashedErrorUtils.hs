@@ -35,6 +35,7 @@ import qualified Data.Map as Map
 import Debug.Trace
 import HashedExpression
 import Data.Array
+import Data.Complex
 import HashedUtils
 import HashedNode (retrieveShape, retrieveNode)
 
@@ -44,11 +45,37 @@ import HashedNode (retrieveShape, retrieveNode)
     =============================================
 -}
 
--- |
+-- | Zero dimension Error data type
 -- Double : Error amount based on the standard deviation
 -- Double : Exact amount for the function
 -- [Double] : Error bound calculated based on the different sub operations
 type ErrorType = (Double, Double , [Double])
+
+-- | Zero dimension Error data type
+-- Double : Error amount based on the standard deviation
+-- Double : Exact amount for the function
+-- [Double] : Error bound calculated based on the different sub operations
+type ErrorTypeC = (Double, Complex Double , [Complex Double])
+
+-- | One dimension Error data type
+-- Double : Error amount based on the standard deviation
+-- Double : Exact amount for the function
+-- Array Int [Double] : Error bound calculated for one dimension array
+type OneDArrayErrorType = Array Int ErrorType
+
+-- | Two dimension Error data type
+-- Double : Error amount based on the standard deviation
+-- Double : Exact amount for the function
+-- Array (Int,Int) [Double] : Error bound calculated for two dimension array
+type TwoDArrayErrorType = Array (Int,Int) ErrorType
+
+
+-- | Three dimension Error data type
+-- Double : Error amount based on the standard deviation
+-- Double : Exact amount for the function
+-- Array (Int,Int,Int) [Double] : Error bound calculated for three dimension array
+type ThreeDArrayErrorType = Array (Int,Int) ErrorType
+
 
 -- | This operation emulates the mathematical operation
 -- | Turn expression to the right type
@@ -162,6 +189,21 @@ class ValueTrace a  where
   valueTracer :: a -> Double -> Int -> a
 
 -- | Trace the amount of value for Zero dimension values
+instance ValueTrace (Complex Double) where
+  valueTracer :: (Complex Double) -> Double -> Int -> (Complex Double)
+  valueTracer val radius depth
+    | radius < 0 =
+      let traceStrnig= "The left bound value in depth (" ++ show depth ++ ") is " ++ show val
+      in trace (traceStrnig) val
+    | radius > 0 =
+      let traceStrnig= "The Right bound value in depth (" ++ show depth ++ ") is " ++ show val
+      in trace (traceStrnig) val
+    | otherwise =
+      let traceStrnig= "The value amount in depth (" ++ show depth ++ ") is " ++ show val
+      in trace (traceStrnig) val
+
+
+-- | Trace the amount of value for Zero dimension values
 instance ValueTrace Double where
   valueTracer :: Double -> Double -> Int -> Double
   valueTracer val radius depth
@@ -174,6 +216,8 @@ instance ValueTrace Double where
     | otherwise =
       let traceStrnig= "The value amount in depth (" ++ show depth ++ ") is " ++ show val
       in trace (traceStrnig) val
+
+
 
 -- | Class for tracing error based on the selected radius and different level of depths.
 class ErrorTrace a b where
@@ -193,8 +237,9 @@ instance ErrorTrace Double [Double] where
     a -> -- ^ input that just going to path throw function
     a  -- ^ output same as input
   errorTracer errorAmount errorBound calcDepth input =
-    let errorString = "The Expression depth is " ++ show calcDepth ++ "The error amount for the bound"
-                    ++ show errorBound ++ " is " ++ show errorAmount
+    let errorString = "The Expression depth is " ++ show calcDepth ++ ", and The error amount for the bound "
+                    ++ show errorBound ++ " is " ++ show errorAmount ++ ", and the mean value for the interval is "
+                    ++ show (mean errorBound) ++ "."
     in trace (errorString) input
 
 
@@ -322,3 +367,68 @@ instance CalcErrorEvaluable Zero R Double where
 --                    error
 --                        ("expression structure Scalar R is wrong " ++ prettify e)
         | otherwise = error "one r but shape is not [] ??"
+
+
+instance CalcErrorEvaluable Zero C (Complex Double) where
+    calcErrorEval :: ValMaps -> Double -> Int -> Expression Zero C -> (Complex Double)
+    calcErrorEval valMap radius depth e@(Expression n mp)
+        | [] <- retrieveShape n mp =
+            case retrieveNode n mp of
+                Sum C args -> sum . map (calcErrorEval valMap radius depth . expZeroC mp) $ args
+                Sum C args -> valueTracer(sum . map (calcErrorEval valMap radius (depth + 1) . expZeroC mp) $ args)
+                                                radius depth -- sum operation considering the shift
+--                Mul C args -> product . map (eval valMap . expZeroC mp) $ args
+--                Power x arg -> eval valMap (expZeroC mp arg) ^ x
+--                Neg C arg -> -(eval valMap $ expZeroC mp arg)
+--                Scale C arg1 arg2 ->
+--                    case retrieveElementType arg1 mp of
+--                        R ->
+--                            fromR (eval valMap (expZeroR mp arg1)) *
+--                            eval valMap (expZeroC mp arg2)
+--                        C ->
+--                            eval valMap (expZeroC mp arg1) *
+--                            eval valMap (expZeroC mp arg2)
+--                RealImag arg1 arg2 ->
+--                    eval valMap (expZeroR mp arg1) :+
+--                    eval valMap (expZeroR mp arg2)
+--                InnerProd C arg1 arg2 ->
+--                    case retrieveShape arg1 mp of
+--                        [] ->
+--                            eval valMap (expZeroC mp arg1) *
+--                            conjugate (eval valMap (expZeroC mp arg2))
+--                        [size] ->
+--                            let res1 = eval valMap $ expOneC mp arg1
+--                                res2 = eval valMap $ expOneC mp arg2
+--                             in sum [ x * conjugate y
+--                                    | i <- [0 .. size - 1]
+--                                    , let x = res1 ! i
+--                                    , let y = res2 ! i
+--                                    ]
+--                        [size1, size2] ->
+--                            let res1 = eval valMap $ expTwoC mp arg1
+--                                res2 = eval valMap $ expTwoC mp arg2
+--                             in sum [ x * conjugate y
+--                                    | i <- [0 .. size1 - 1]
+--                                    , j <- [0 .. size2 - 1]
+--                                    , let x = res1 ! (i, j)
+--                                    , let y = res2 ! (i, j)
+--                                    ]
+--                        [size1, size2, size3] ->
+--                            let res1 = eval valMap $ expThreeC mp arg1
+--                                res2 = eval valMap $ expThreeC mp arg2
+--                             in sum [ x * conjugate y
+--                                    | i <- [0 .. size1 - 1]
+--                                    , j <- [0 .. size2 - 1]
+--                                    , k <- [0 .. size3 - 1]
+--                                    , let x = res1 ! (i, j, k)
+--                                    , let y = res2 ! (i, j, k)
+--                                    ]
+--                        _ -> error "4D shape?"
+--                Piecewise marks conditionArg branchArgs ->
+--                    let cdt = eval valMap $ expZeroR mp conditionArg
+--                        branches = map (eval valMap . expZeroC mp) branchArgs
+--                     in chooseBranch marks cdt branches
+--                _ ->
+--                    error
+--                        ("expression structure Scalar C is wrong " ++ prettify e)
+        | otherwise = error "One C but shape is not [] ??"
