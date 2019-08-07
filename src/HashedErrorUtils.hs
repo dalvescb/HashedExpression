@@ -55,7 +55,7 @@ type ErrorType = (Double, Double , [Double])
 -- Double : Error amount based on the standard deviation
 -- Double : Exact amount for the function
 -- [Double] : Error bound calculated based on the different sub operations
-type ErrorTypeC = (Double, Complex Double , [Complex Double])
+type ErrorTypeC = (Complex Double, Complex Double , [Complex Double])
 
 -- | One dimension Error data type
 -- Double : Error amount based on the standard deviation
@@ -374,7 +374,6 @@ instance CalcErrorEvaluable Zero C (Complex Double) where
     calcErrorEval valMap radius depth e@(Expression n mp)
         | [] <- retrieveShape n mp =
             case retrieveNode n mp of
-                Sum C args -> sum . map (calcErrorEval valMap radius depth . expZeroC mp) $ args
                 Sum C args -> valueTracer(sum . map (calcErrorEval valMap radius (depth + 1) . expZeroC mp) $ args)
                                                 radius depth -- sum operation considering the shift
 --                Mul C args -> product . map (eval valMap . expZeroC mp) $ args

@@ -149,17 +149,17 @@ instance ErrorEvaluable Zero R ErrorType where
 --                        ("expression structure Scalar R is wrong " ++ prettify e)
         | otherwise = error "one r but shape is not [] ??"
 
---instance ErrorEvaluable Zero C ErrorTypeC where
---    errorEval :: ValMaps -> Double -> Int -> Expression Zero C -> ErrorTypeC
---    errorEval valMap radius depth e@(Expression n mp)
---        | [] <- retrieveShape n mp =
---            case retrieveNode n mp of
---                Sum C args -> let leftBound = sum . map (calcErrorEval valMap (-radius) (depth+1) . expZeroC mp) $ args
---                                  exactAmount = sum . map (calcErrorEval valMap (0) (depth+1) . expZeroC mp) $ args
---                                  rightBound = sum . map (calcErrorEval valMap radius (depth+1) . expZeroC mp) $ args
---                                  errorBound = [leftBound,rightBound]
---                                  stdAmount= stdDev errorBound
---                               in errorTracer stdAmount errorBound (depth+1) (stdAmount,exactAmount,errorBound)
+instance ErrorEvaluable Zero C ErrorTypeC where
+    errorEval :: ValMaps -> Double -> Int -> Expression Zero C -> ErrorTypeC
+    errorEval valMap radius depth e@(Expression n mp)
+        | [] <- retrieveShape n mp =
+            case retrieveNode n mp of
+                Sum C args -> let leftBound = sum . map (calcErrorEval valMap (-radius) (depth+1) . expZeroC mp) $ args
+                                  exactAmount = sum . map (calcErrorEval valMap (0) (depth+1) . expZeroC mp) $ args
+                                  rightBound = sum . map (calcErrorEval valMap radius (depth+1) . expZeroC mp) $ args
+                                  errorBound = [leftBound,rightBound]
+                                  stdAmount= stdDev errorBound
+                               in errorTracer stdAmount errorBound (depth+1) (stdAmount,exactAmount,errorBound)
                 --
 --                Mul C args -> product . map (eval valMap . expZeroC mp) $ args
 --                Power x arg -> eval valMap (expZeroC mp arg) ^ x
