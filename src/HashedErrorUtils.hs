@@ -51,6 +51,7 @@ import HashedNode (retrieveShape, retrieveNode)
 -- [Double] : Error bound calculated based on the different sub operations
 type ErrorType = (Double, Double , [Double])
 
+
 -- | Zero dimension Error data type
 -- Double : Error amount based on the standard deviation
 -- Double : Exact amount for the function
@@ -269,6 +270,14 @@ instance ConstantErorrCalc Double where
         stdAmount = stdDev errorBound -- Calculate the generated interval's standard deviation amount
     in errorTracer stdAmount errorBound depth (stdAmount,val,errorBound)
 
+  {--
+      ======================
+      ==  Error Tracer    ==
+      ======================
+  -}
+
+showError :: ErrorType -> ErrorType
+showError input = trace ("The amount in this step is " ++ show input) input
 
   {--
       =====================================
@@ -276,6 +285,52 @@ instance ConstantErorrCalc Double where
       =====================================
   -}
 
+-- | Class for interval Sum
+class SumCalculation input output where
+  intervalSum ::input-> output
+
+
+instance SumCalculation [ErrorType] ErrorType where
+  intervalSum ::  [ErrorType] -> ErrorType
+  intervalSum [xs] = xs
+  intervalSum (xs:xss) =
+    let
+        (_,firstExactAmount,firstErrorBound) = xs
+        (_,restExactAmount,restErrorBound) = (intervalSum xss :: ErrorType)
+        overAllIntervalSumValues = [i+j | i <- firstErrorBound, j<- restErrorBound]
+        newOverAllSum = firstExactAmount + restExactAmount
+        lowerBound = minimum overAllIntervalSumValues
+        upperBound = maximum overAllIntervalSumValues
+        newErrorBound = [lowerBound,upperBound]
+        newErrorAmount = stdDev newErrorBound
+    in  showError (newErrorAmount,newOverAllSum,newErrorBound)
+
+
+    {--
+        =====================================
+        ==  Product Error bound calculation    ==
+        =====================================
+    -}
+
+  -- | Class for interval Sum
+class ProductCalculation input output where
+    intervalProduct ::input-> output
+
+
+instance ProductCalculation [ErrorType] ErrorType where
+    intervalProduct ::  [ErrorType] -> ErrorType
+    intervalProduct [xs] = xs
+    intervalProduct (xs:xss) =
+      let
+          (_,firstExactAmount,firstErrorBound) = xs
+          (_,restExactAmount,restErrorBound) = (intervalProduct xss :: ErrorType)
+          overAllIntervalProductValues = [i * j | i <- firstErrorBound, j<- restErrorBound]
+          newOverAllProduct = firstExactAmount * restExactAmount
+          lowerBound = minimum overAllIntervalProductValues
+          upperBound = maximum overAllIntervalProductValues
+          newErrorBound = [lowerBound,upperBound]
+          newErrorAmount = stdDev newErrorBound
+      in  showError (newErrorAmount,newOverAllProduct,newErrorBound)
 
   {--
       ==========================================================
@@ -367,67 +422,3 @@ instance CalcErrorEvaluable Zero R Double where
 --                    error
 --                        ("expression structure Scalar R is wrong " ++ prettify e)
         | otherwise = error "one r but shape is not [] ??"
-
-
-instance CalcErrorEvaluable Zero C (Complex Double) where
-    calcErrorEval :: ValMaps -> Double -> Int -> Expression Zero C -> (Complex Double)
-    calcErrorEval valMap radius depth e@(Expression n mp)
-        | [] <- retrieveShape n mp =
-            case retrieveNode n mp of
-                Sum C args -> valueTracer(sum . map (calcErrorEval valMap radius (depth + 1) . expZeroC mp) $ args)
-                                                radius depth -- sum operation considering the shift
---                Mul C args -> product . map (eval valMap . expZeroC mp) $ args
---                Power x arg -> eval valMap (expZeroC mp arg) ^ x
---                Neg C arg -> -(eval valMap $ expZeroC mp arg)
---                Scale C arg1 arg2 ->
---                    case retrieveElementType arg1 mp of
---                        R ->
---                            fromR (eval valMap (expZeroR mp arg1)) *
---                            eval valMap (expZeroC mp arg2)
---                        C ->
---                            eval valMap (expZeroC mp arg1) *
---                            eval valMap (expZeroC mp arg2)
---                RealImag arg1 arg2 ->
---                    eval valMap (expZeroR mp arg1) :+
---                    eval valMap (expZeroR mp arg2)
---                InnerProd C arg1 arg2 ->
---                    case retrieveShape arg1 mp of
---                        [] ->
---                            eval valMap (expZeroC mp arg1) *
---                            conjugate (eval valMap (expZeroC mp arg2))
---                        [size] ->
---                            let res1 = eval valMap $ expOneC mp arg1
---                                res2 = eval valMap $ expOneC mp arg2
---                             in sum [ x * conjugate y
---                                    | i <- [0 .. size - 1]
---                                    , let x = res1 ! i
---                                    , let y = res2 ! i
---                                    ]
---                        [size1, size2] ->
---                            let res1 = eval valMap $ expTwoC mp arg1
---                                res2 = eval valMap $ expTwoC mp arg2
---                             in sum [ x * conjugate y
---                                    | i <- [0 .. size1 - 1]
---                                    , j <- [0 .. size2 - 1]
---                                    , let x = res1 ! (i, j)
---                                    , let y = res2 ! (i, j)
---                                    ]
---                        [size1, size2, size3] ->
---                            let res1 = eval valMap $ expThreeC mp arg1
---                                res2 = eval valMap $ expThreeC mp arg2
---                             in sum [ x * conjugate y
---                                    | i <- [0 .. size1 - 1]
---                                    , j <- [0 .. size2 - 1]
---                                    , k <- [0 .. size3 - 1]
---                                    , let x = res1 ! (i, j, k)
---                                    , let y = res2 ! (i, j, k)
---                                    ]
---                        _ -> error "4D shape?"
---                Piecewise marks conditionArg branchArgs ->
---                    let cdt = eval valMap $ expZeroR mp conditionArg
---                        branches = map (eval valMap . expZeroC mp) branchArgs
---                     in chooseBranch marks cdt branches
---                _ ->
---                    error
---                        ("expression structure Scalar C is wrong " ++ prettify e)
-        | otherwise = error "One C but shape is not [] ??"
