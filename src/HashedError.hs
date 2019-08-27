@@ -75,18 +75,16 @@ instance ErrorEvaluable Zero R ErrorType where
                         Just val -> constantErorCalc radius depth val
                         _ -> error "no value associated with the variable"
                 Const val -> (0,val,[val,val,val]) -- For constant value we are not going to calculate any error bound
-                Sum R args -> let leftBound = sum . map (calcErrorEval valMap (-radius) (depth+1) . expZeroR mp) $ args
-                                  exactAmount = sum . map (calcErrorEval valMap (0) (depth+1) . expZeroR mp) $ args
-                                  rightBound = sum . map (calcErrorEval valMap radius (depth+1) . expZeroR mp) $ args
-                                  errorBound = [leftBound,rightBound]
-                                  stdAmount= stdDev errorBound
-                               in errorTracer stdAmount errorBound (depth+1) (stdAmount,exactAmount,errorBound)
---                Mul R args -> product . map (eval valMap . expZeroR mp) $ args
---                Neg R arg -> -(eval valMap $ expZeroR mp arg)
---                Scale R arg1 arg2 ->
---                    eval valMap (expZeroR mp arg1) *
---                    eval valMap (expZeroR mp arg2)
---                Power x arg -> eval valMap (expZeroR mp arg) ^ x
+                Sum R args -> intervalSum (map (errorEval valMap radius (depth + 1) . expZeroR mp) args :: [ErrorType]) depth
+                Mul R args -> intervalProduct (map (errorEval valMap radius (depth + 1) . expZeroR mp) args :: [ErrorType]) depth
+                Neg R arg -> intervalNeg (errorEval valMap radius (depth + 1) $ expZeroR mp arg :: ErrorType) depth
+                Scale R arg1 arg2 ->
+                  let intervalToCalc = [errorEval valMap radius (depth + 1) (expZeroR mp arg1) :: ErrorType
+                                        , errorEval valMap radius (depth + 1) (expZeroR mp arg2) :: ErrorType]
+                  in  intervalProduct intervalToCalc depth
+                Power x arg ->
+                  let expressionValue = errorEval valMap radius (depth + 1) (expZeroR mp arg) :: ErrorType
+                  in intervalPower expressionValue x depth
 --                Div arg1 arg2 ->
 --                    eval valMap (expZeroR mp arg1) /
 --                    eval valMap (expZeroR mp arg2)

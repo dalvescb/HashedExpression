@@ -287,24 +287,26 @@ showError input = trace ("The amount in this step is " ++ show input) input
 
 -- | Class for interval Sum
 class SumCalculation input output where
-  intervalSum ::input-> output
+  intervalSum ::
+    input -> -- ^ Input : input of the interval Sum function - could be either list or array of ErrorType
+    Int -> -- ^ Depth of the calculations
+    output -- ^ Output : Output of the interval Sum function - could be either list or array of ErrorType
 
 
 instance SumCalculation [ErrorType] ErrorType where
-  intervalSum ::  [ErrorType] -> ErrorType
-  intervalSum [xs] = xs
-  intervalSum (xs:xss) =
+  intervalSum ::  [ErrorType] -> Int -> ErrorType
+  intervalSum [xs] depth = xs
+  intervalSum (xs:xss) depth =
     let
         (_,firstExactAmount,firstErrorBound) = xs
-        (_,restExactAmount,restErrorBound) = (intervalSum xss :: ErrorType)
+        (_,restExactAmount,restErrorBound) = (intervalSum xss depth :: ErrorType)
         overAllIntervalSumValues = [i+j | i <- firstErrorBound, j<- restErrorBound]
         newOverAllSum = firstExactAmount + restExactAmount
         lowerBound = minimum overAllIntervalSumValues
         upperBound = maximum overAllIntervalSumValues
         newErrorBound = [lowerBound,upperBound]
         newErrorAmount = stdDev newErrorBound
-    in  showError (newErrorAmount,newOverAllSum,newErrorBound)
-
+    in  errorTracer newErrorAmount newErrorBound depth (newErrorAmount,newOverAllSum,newErrorBound)
 
     {--
         =====================================
@@ -312,113 +314,76 @@ instance SumCalculation [ErrorType] ErrorType where
         =====================================
     -}
 
-  -- | Class for interval Sum
+  -- | Class for interval Product
 class ProductCalculation input output where
-    intervalProduct ::input-> output
+    intervalProduct ::
+      input -> -- ^ Input : input of the interval Sum function - could be either list or array of ErrorType
+      Int -> -- ^ Depth of the calculations
+      output -- ^ Output : Output of the interval Sum function - could be either list or array of ErrorType
 
 
 instance ProductCalculation [ErrorType] ErrorType where
-    intervalProduct ::  [ErrorType] -> ErrorType
-    intervalProduct [xs] = xs
-    intervalProduct (xs:xss) =
+    intervalProduct ::  [ErrorType] -> Int -> ErrorType
+    intervalProduct [xs] depth = xs
+    intervalProduct (xs:xss) depth =
       let
           (_,firstExactAmount,firstErrorBound) = xs
-          (_,restExactAmount,restErrorBound) = (intervalProduct xss :: ErrorType)
+          (_,restExactAmount,restErrorBound) = (intervalProduct xss depth :: ErrorType)
           overAllIntervalProductValues = [i * j | i <- firstErrorBound, j<- restErrorBound]
           newOverAllProduct = firstExactAmount * restExactAmount
           lowerBound = minimum overAllIntervalProductValues
           upperBound = maximum overAllIntervalProductValues
           newErrorBound = [lowerBound,upperBound]
           newErrorAmount = stdDev newErrorBound
-      in  showError (newErrorAmount,newOverAllProduct,newErrorBound)
+      in  errorTracer newErrorAmount newErrorBound depth (newErrorAmount,newOverAllProduct,newErrorBound)
 
-  {--
-      ==========================================================
-      ==  Do the calculation considering the radius amount    ==
-      ==========================================================
-  -}
+ {--
+        =====================================
+        ==  Neg Error bound calculation    ==
+        =====================================
+    -}
 
-class CalcErrorEvaluable d rc output | d rc -> output where
-    calcErrorEval :: ValMaps -> Double -> Int -> Expression d rc -> output
+-- | Class for Neg interval calcualtion
+class NegCalculation input output where
+    intervalNeg ::
+      input -> -- ^ Input : input of the interval Sum function - could be either list or array of ErrorType
+      Int -> -- ^ Depth of the calculations
+      output -- ^ Output : Output of the interval Sum function - could be either list or array of ErrorType
 
--- | Repeat the process of the sum operation using an error bound parameter
---
-instance CalcErrorEvaluable Zero R Double where
-    calcErrorEval :: ValMaps -> Double -> Int -> Expression Zero R -> Double
-    calcErrorEval valMap radius depth e@(Expression n mp)
-        | [] <- retrieveShape n mp =
-            case retrieveNode n mp of
-                Var name ->
-                    case Map.lookup name $ vm0 valMap of
-                        Just val -> valueTracer(val P.+ radius) radius depth -- calculating the shift amount based on radius
-                        _ -> error "no value associated with the variable"
-                Const val -> valueTracer(val P.+ radius) radius depth -- Calculating the shift amount based on the radius
-                Sum R args -> valueTracer(sum . map (calcErrorEval valMap radius (depth + 1) . expZeroR mp) $ args)
-                                radius depth -- sum operation considering the shift
---                Mul R args -> product . map (errorEval valMap . expZeroR mp) $ args
---                Neg R arg -> -(eval valMap $ expZeroR mp arg)
---                Scale R arg1 arg2 ->
---                    eval valMap (expZeroR mp arg1) *
---                    eval valMap (expZeroR mp arg2)
---                Power x arg -> eval valMap (expZeroR mp arg) ^ x
---                Div arg1 arg2 ->
---                    eval valMap (expZeroR mp arg1) /
---                    eval valMap (expZeroR mp arg2)
---                Sqrt arg -> sqrt (eval valMap (expZeroR mp arg))
---                Sin arg -> sin (eval valMap (expZeroR mp arg))
---                Cos arg -> cos (eval valMap (expZeroR mp arg))
---                Tan arg -> tan (eval valMap (expZeroR mp arg))
---                Exp arg -> exp (eval valMap (expZeroR mp arg))
---                Log arg -> log (eval valMap (expZeroR mp arg))
---                Sinh arg -> sinh (eval valMap (expZeroR mp arg))
---                Cosh arg -> cosh (eval valMap (expZeroR mp arg))
---                Tanh arg -> tanh (eval valMap (expZeroR mp arg))
---                Asin arg -> asin (eval valMap (expZeroR mp arg))
---                Acos arg -> acos (eval valMap (expZeroR mp arg))
---                Atan arg -> atan (eval valMap (expZeroR mp arg))
---                Asinh arg -> asinh (eval valMap (expZeroR mp arg))
---                Acosh arg -> acosh (eval valMap (expZeroR mp arg))
---                Atanh arg -> atanh (eval valMap (expZeroR mp arg))
---                RealPart arg -> realPart (eval valMap (expZeroC mp arg))
---                ImagPart arg -> imagPart (eval valMap (expZeroC mp arg))
---                InnerProd R arg1 arg2 ->
---                    case retrieveShape arg1 mp of
---                        [] ->
---                            eval valMap (expZeroR mp arg1) *
---                            eval valMap (expZeroR mp arg2)
---                        [size] ->
---                            let res1 = eval valMap $ expOneR mp arg1
---                                res2 = eval valMap $ expOneR mp arg2
---                             in sum [ x * y
---                                    | i <- [0 .. size - 1]
---                                    , let x = res1 ! i
---                                    , let y = res2 ! i
---                                    ]
---                        [size1, size2] ->
---                            let res1 = eval valMap $ expTwoR mp arg1
---                                res2 = eval valMap $ expTwoR mp arg2
---                             in sum [ x * y
---                                    | i <- [0 .. size1 - 1]
---                                    , j <- [0 .. size2 - 1]
---                                    , let x = res1 ! (i, j)
---                                    , let y = res2 ! (i, j)
---                                    ]
---                        [size1, size2, size3] ->
---                            let res1 = eval valMap $ expThreeR mp arg1
---                                res2 = eval valMap $ expThreeR mp arg2
---                             in sum [ x * y
---                                    | i <- [0 .. size1 - 1]
---                                    , j <- [0 .. size2 - 1]
---                                    , k <- [0 .. size3 - 1]
---                                    , let x = res1 ! (i, j, k)
---                                    , let y = res2 ! (i, j, k)
---                                    ]
---                        _ -> error "4D shape?"
---                Piecewise marks conditionArg branchArgs ->
---                    let cdt = eval valMap $ expZeroR mp conditionArg
---                        branches = map (eval valMap . expZeroR mp) branchArgs
---                     in chooseBranch marks cdt branches
---                _ ->
---                    error
---                        ("expression structure Scalar R is wrong " ++ prettify e)
-        | otherwise = error "one r but shape is not [] ??"
+instance NegCalculation ErrorType ErrorType where
+  intervalNeg ::  ErrorType -> Int -> ErrorType
+  intervalNeg inputInterval depth =
+    let (_,exactAmount,errorBound) = inputInterval
+        primaryNegInterval = map negate errorBound
+        lowerBound = minimum primaryNegInterval
+        upperBound = maximum primaryNegInterval
+        newErrorBound = [lowerBound, upperBound]
+        newErrorAmount = stdDev newErrorBound
+     in errorTracer newErrorAmount newErrorBound depth (newErrorAmount, negate exactAmount, newErrorBound)
+
+
+{--
+        =====================================
+        ==  Power Error bound calculation  ==
+        =====================================
+-}
+
+
+-- | Class for Neg interval calcualtion
+class PowerCalculation input output where
+  intervalPower ::
+      input -> -- ^ Input : input of the interval Sum function - could be either list or array of ErrorType
+      Int -> -- ^ Input : Power value as integer
+      Int -> -- ^ Depth of the calculations
+      output -- ^ Output : Output of the interval Sum function - could be either list or array of ErrorType
+
+instance PowerCalculation ErrorType ErrorType where
+  intervalPower ::  ErrorType -> Int -> Int -> ErrorType
+  intervalPower inputInterval power depth =
+    let (_,exactAmount,errorBound) = inputInterval
+        primaryNegInterval = map (^ power) errorBound
+        lowerBound = minimum primaryNegInterval
+        upperBound = maximum primaryNegInterval
+        newErrorBound = [lowerBound, upperBound]
+        newErrorAmount = stdDev newErrorBound
+     in errorTracer newErrorAmount newErrorBound depth (newErrorAmount, exactAmount ^ power, newErrorBound)
