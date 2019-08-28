@@ -343,7 +343,7 @@ instance ProductCalculation [ErrorType] ErrorType where
         =====================================
     -}
 
--- | Class for Neg interval calcualtion
+-- | Class for Neg interval calculation
 class NegCalculation input output where
     intervalNeg ::
       input -> -- ^ Input : input of the interval Sum function - could be either list or array of ErrorType
@@ -369,10 +369,10 @@ instance NegCalculation ErrorType ErrorType where
 -}
 
 
--- | Class for Neg interval calcualtion
+-- | Class for Power interval calculation
 class PowerCalculation input output where
   intervalPower ::
-      input -> -- ^ Input : input of the interval Sum function - could be either list or array of ErrorType
+      input -> -- ^ Input : input of the interval Power function - could be either list or array of ErrorType
       Int -> -- ^ Input : Power value as integer
       Int -> -- ^ Depth of the calculations
       output -- ^ Output : Output of the interval Sum function - could be either list or array of ErrorType
@@ -387,3 +387,83 @@ instance PowerCalculation ErrorType ErrorType where
         newErrorBound = [lowerBound, upperBound]
         newErrorAmount = stdDev newErrorBound
      in errorTracer newErrorAmount newErrorBound depth (newErrorAmount, exactAmount ^ power, newErrorBound)
+
+
+
+{--
+        =====================================
+        ==  Power Error bound calculation  ==
+        =====================================
+-}
+
+
+-- | Class for Div interval calculation
+class DivCalculation nom den output where
+  intervalDiv ::
+      nom -> -- ^ Input : Nominator of the fraction - could be either list or array of ErrorType
+      den -> -- ^ Input : Denominator of the fraction - could be either list or array of ErrorType
+      Int -> -- ^ Depth of the calculations
+      output -- ^ Output : Output of the interval Sum function - could be either list or array of ErrorType
+
+-- | Div interval operation for Real numbers
+instance DivCalculation ErrorType ErrorType ErrorType where
+  intervalDiv ::  ErrorType -> ErrorType -> Int -> ErrorType
+  intervalDiv nom den depth =
+    let newDen = intervalPower den (-1) depth
+        devResult = intervalProduct [nom,newDen] depth
+        (newErrorAmount,exactAmount,newErrorBound) = devResult
+     in errorTracer newErrorAmount newErrorBound depth devResult
+
+
+{--
+        =====================================
+        ==  Sqrt Error bound calculation   ==
+        =====================================
+-}
+
+-- | Class for Sqrt interval calculation
+class SqrtCalculation input output where
+    intervalSqrt ::
+      input -> -- ^ Input : input of the interval Sum function - could be either list or array of ErrorType
+      Int -> -- ^ Depth of the calculations
+      output -- ^ Output : Output of the interval Sum function - could be either list or array of ErrorType
+
+
+-- | Sqrt interval calculation for real numbers
+instance SqrtCalculation ErrorType ErrorType where
+  intervalSqrt ::  ErrorType -> Int -> ErrorType
+  intervalSqrt inputInterval depth =
+    let (_,exactAmount,errorBound) = inputInterval
+        primarySqrtInterval = map P.sqrt errorBound
+        lowerBound = minimum primarySqrtInterval
+        upperBound = maximum primarySqrtInterval
+        newErrorBound = [lowerBound, upperBound]
+        newErrorAmount = stdDev newErrorBound
+     in errorTracer newErrorAmount newErrorBound depth (newErrorAmount, P.sqrt exactAmount, newErrorBound)
+
+
+{--
+        =====================================
+        ==  Sqrt Error bound calculation   ==
+        =====================================
+-}
+
+-- | Class for Log interval calculation
+class LogCalculation input output where
+    intervalLog ::
+      input -> -- ^ Input : input of the interval Sum function - could be either list or array of ErrorType
+      Int -> -- ^ Depth of the calculations
+      output -- ^ Output : Output of the interval Sum function - could be either list or array of ErrorType
+
+
+-- | Sqrt interval calculation for real numbers
+instance LogCalculation ErrorType ErrorType where
+  intervalLog ::  ErrorType -> Int -> ErrorType
+  intervalLog inputInterval depth =
+    let (_,exactAmount,errorBound) = inputInterval
+        primarySqrtInterval = map P.log errorBound
+        lowerBound = minimum primarySqrtInterval
+        upperBound = maximum primarySqrtInterval
+        newErrorBound = [lowerBound, upperBound]
+        newErrorAmount = stdDev newErrorBound
+     in errorTracer newErrorAmount newErrorBound depth (newErrorAmount, P.log exactAmount, newErrorBound)

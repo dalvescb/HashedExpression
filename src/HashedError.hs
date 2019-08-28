@@ -85,15 +85,16 @@ instance ErrorEvaluable Zero R ErrorType where
                 Power x arg ->
                   let expressionValue = errorEval valMap radius (depth + 1) (expZeroR mp arg) :: ErrorType
                   in intervalPower expressionValue x depth
---                Div arg1 arg2 ->
---                    eval valMap (expZeroR mp arg1) /
---                    eval valMap (expZeroR mp arg2)
---                Sqrt arg -> sqrt (eval valMap (expZeroR mp arg))
+                Div arg1 arg2 ->
+                  let divArg1 = errorEval valMap radius (depth + 1) (expZeroR mp arg1) :: ErrorType
+                      divArg2 = errorEval valMap radius (depth + 1) (expZeroR mp arg2) :: ErrorType
+                  in intervalDiv divArg1 divArg2 depth
+                Sqrt arg -> intervalSqrt (errorEval valMap radius (depth + 1) (expZeroR mp arg) :: ErrorType) depth
+                Log arg -> intervalLog (errorEval valMap radius (depth + 1) (expZeroR mp arg) :: ErrorType) depth
 --                Sin arg -> sin (eval valMap (expZeroR mp arg))
 --                Cos arg -> cos (eval valMap (expZeroR mp arg))
 --                Tan arg -> tan (eval valMap (expZeroR mp arg))
 --                Exp arg -> exp (eval valMap (expZeroR mp arg))
---                Log arg -> log (eval valMap (expZeroR mp arg))
 --                Sinh arg -> sinh (eval valMap (expZeroR mp arg))
 --                Cosh arg -> cosh (eval valMap (expZeroR mp arg))
 --                Tanh arg -> tanh (eval valMap (expZeroR mp arg))
