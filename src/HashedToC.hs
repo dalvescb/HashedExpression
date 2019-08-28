@@ -2,7 +2,6 @@
 
 module HashedToC where
 
-import HashedDerivative
 import HashedExpression
 import HashedInstances
 import HashedInterp
@@ -54,7 +53,7 @@ instance MemMap DebugMemMap where
         0
         nodes
 
-      dimSize :: ExpressionEdge -> Dims 
+      dimSize :: ExpressionEdge -> Dims
       dimSize (DVar _dims _name) = error $ "HashedToC.DebugMemMap.mkMem found DVar"
       dimSize (RelElem _ _ _) = error $ "HashedToC.DebugMemMap.mkMem found RelElem"
       dimSize (Var dims _name) = dims
