@@ -10,6 +10,7 @@ import qualified Data.Set as Set
 import HashedDerivative
 import HashedExpression
 import HashedInterp
+
 -- import HashedError
 import HashedOperation hiding (product, sum)
 import qualified HashedOperation
@@ -46,16 +47,13 @@ import Data.List (intercalate)
 import Data.Maybe (fromJust)
 import Data.STRef.Strict
 import HashedCollect
+import HashedError
+import HashedErrorUtils
 import HashedToC (generateProgram)
 import HashedUtils
 import HashedVar
 import Test.Hspec
 import Test.QuickCheck hiding (scale)
-import HashedError
-import HashedErrorUtils
-
-
-
 
 sum1 :: (DimensionType d, Addable et) => [Expression d et] -> Expression d et
 sum1 = fromJust . HashedOperation.sum
@@ -72,30 +70,30 @@ prod1 = fromJust . HashedOperation.sum
 main
 --    let exp = x * (x1 * y1 * (s *. z1)) <.> sin x1 * z
  =
-     let  exp1 = a + e
-          valMaps = ValMaps
-                      { vm0 = fromList [("a",-34.014382143320645)
-                                , ("e",16.28066712773697)
-                                , ("f",-20.563120542303395)
-                                , ("l",-42.60173642164761)
-                                , ("m",24.88803997980011)
-                                , ("n",14.668148863837619)
-                                , ("q",33.35634608052121)
-                                , ("r",-25.57446677272314)
-                                , ("t",22.5565441852349)
-                                , ("u",-0.567665380786866)
-                                , ("v",40.71643373865157)
-                                , ("w",-41.553065619799)
-                                , ("y",8.166721044435123)
-                                ]
-                      , vm1 = fromList []
-                      , vm2 = fromList []
-                      , vm3 = fromList []
-                      }
-     in
-     do print $ (errorEval valMaps (0.05) 0 exp1 :: ErrorType)
-
---   let exp1 = (a) ^ 2
+    let exp1 = a + e
+        valMaps =
+            ValMaps
+                { vm0 =
+                      fromList
+                          [ ("a", -34.014382143320645)
+                          , ("e", 16.28066712773697)
+                          , ("f", -20.563120542303395)
+                          , ("l", -42.60173642164761)
+                          , ("m", 24.88803997980011)
+                          , ("n", 14.668148863837619)
+                          , ("q", 33.35634608052121)
+                          , ("r", -25.57446677272314)
+                          , ("t", 22.5565441852349)
+                          , ("u", -0.567665380786866)
+                          , ("v", 40.71643373865157)
+                          , ("w", -41.553065619799)
+                          , ("y", 8.166721044435123)
+                          ]
+                , vm1 = fromList []
+                , vm2 = fromList []
+                , vm3 = fromList []
+                }
+     in do print $ (errorEval valMaps (0.05) 0 exp1 :: ErrorType)--   let exp1 = (a) ^ 2
 --   in
 --   do print $ eval valMaps exp1
 -- do
@@ -118,7 +116,6 @@ main
 ----    let exp = x *. y
 --    showExp exp
 --    showExpDebug . collectDifferentials . exteriorDerivative allVars $ exp
-
 --let valMaps = ValMaps
 --                      { vm0 = fromList [("a1",-34.014382143320645)
 --                                , ("e1",16.28066712773697)

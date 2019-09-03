@@ -239,9 +239,22 @@ instance ErrorTrace Double [Double] where
     a  -- ^ output same as input
   errorTracer errorAmount errorBound calcDepth input =
     let errorString = "The Expression depth is " ++ show calcDepth ++ ", and The error amount for the bound "
-                    ++ show errorBound ++ " is " ++ show errorAmount ++ ", and the mean value for the interval is "
-                    ++ show (mean errorBound) ++ "."
-    in trace (errorString) input
+                    ++ show errorBound ++ " is " ++ show errorAmount ++ "."
+    in trace errorString input
+
+
+instance ErrorTrace (Array Int Double) (Array Int [Double]) where
+-- | Class for Tracing the Error amount
+  errorTracer::
+    Array Int Double ->  -- ^ Error amount
+    Array Int [Double] -> -- ^ Error bound
+    Int -> -- ^ Calculation depth
+    a -> -- ^ input that just going to path throw function
+    a  -- ^ output same as input
+  errorTracer errorAmount errorBound calcDepth input =
+    let errorString = "The Expression depth is " ++ show calcDepth ++ ", and The error amount for the bound "
+                    ++ show errorBound ++ " is " ++ show errorAmount ++ "."
+    in trace errorString input
 
 
 {--
@@ -251,24 +264,49 @@ instance ErrorTrace Double [Double] where
 -}
 
 -- | Class for calculating the error amount for variables
-class ConstantErorrCalc val  where
+class ConstantErorrCalc input output  where
   constantErorCalc ::
     Double ->   -- ^ Radius that will be used for interval calculation
     Int ->    -- ^ Depth of the expression
-    val ->      -- ^ Input Variable as Double, 1d, 2d or 3d array
-    ErrorType         -- ^ Output same as input variable
+    input ->      -- ^ Input Variable as Double, 1d, 2d or 3d array
+    output         -- ^ Output same as input variable
 
 -- | Calculate and generate the interval for variables
-instance ConstantErorrCalc Double where
+instance ConstantErorrCalc Double ErrorType where
   constantErorCalc ::
     Double -- ^ Radius that will be used for interval calculation
     -> Int -- ^ Depth of the expression
     -> Double -- ^ Input Variable as Double, 1d, 2d or 3d array
     -> ErrorType -- ^ Output same as input variable
-  constantErorCalc radius depth val  =
-    let errorBound = getInterval radius val -- Calculate the interval based on the radius amount
+  constantErorCalc radius depth input  =
+    let errorBound = getInterval radius input -- Calculate the interval based on the radius amount
         stdAmount = stdDev errorBound -- Calculate the generated interval's standard deviation amount
-    in errorTracer stdAmount errorBound depth (stdAmount,val,errorBound)
+    in errorTracer stdAmount errorBound depth (stdAmount,input,errorBound)
+
+
+ -- | Calculate and generate the interval for variables
+instance ConstantErorrCalc (Array Int Double) (Array Int ErrorType) where
+  constantErorCalc ::
+    Double -- ^ Radius that will be used for interval calculation
+    -> Int -- ^ Depth of the expression
+    -> Array Int Double -- ^ Input Variable as Double, 1d, 2d or 3d array
+    -> Array Int ErrorType -- ^ Output same as input variable
+  constantErorCalc radius depth input  =
+    let getSize :: Array Int a -> Int
+        getSize arr = snd $ bounds arr
+        fmap :: (a -> c) -> Array Int a -> Array Int c
+        fmap f arr =
+            let size = getSize input
+            in listArray (0, size) [f x | i <- [0 .. size], let x = arr ! i]
+        fmerg ::  Array Int Double -> Array Int Double -> Array Int [Double] -> Array Int ErrorType
+        fmerg stdAmountArr exactAmountArr errorBoundArr =
+            let size = getSize exactAmountArr
+            in listArray (0, size) [(x,y,z) | i <- [0 .. size], let x = stdAmountArr ! i, let y = exactAmountArr ! i , let z = errorBoundArr !i]
+        errorBound = fmap (getInterval radius) input -- Calculate the interval based on the radius amount
+        stdAmount = fmap stdDev errorBound -- Calculate the generated interval's standard deviation amount
+    in errorTracer stdAmount errorBound depth $ fmerg stdAmount input errorBound
+
+
 
   {--
       ======================
@@ -278,6 +316,7 @@ instance ConstantErorrCalc Double where
 
 showError :: ErrorType -> ErrorType
 showError input = trace ("The amount in this step is " ++ show input) input
+
 
   {--
       =====================================
@@ -307,6 +346,7 @@ instance SumCalculation [ErrorType] ErrorType where
         newErrorBound = [lowerBound,upperBound]
         newErrorAmount = stdDev newErrorBound
     in  errorTracer newErrorAmount newErrorBound depth (newErrorAmount,newOverAllSum,newErrorBound)
+
 
     {--
         =====================================

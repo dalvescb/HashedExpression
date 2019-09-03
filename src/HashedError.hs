@@ -74,7 +74,7 @@ instance ErrorEvaluable Zero R ErrorType where
                     case Map.lookup name $ vm0 valMap of
                         Just val -> constantErorCalc radius depth val
                         _ -> error "no value associated with the variable"
-                Const val -> (0,val,[val,val,val]) -- For constant value we are not going to calculate any error bound
+                Const val -> (0,val,[val,val]) -- For constant value we are not going to calculate any error bound
                 Sum R args -> intervalSum (map (errorEval valMap radius (depth + 1) . expZeroR mp) args :: [ErrorType]) depth
                 Mul R args -> intervalProduct (map (errorEval valMap radius (depth + 1) . expZeroR mp) args :: [ErrorType]) depth
                 Neg R arg -> intervalNeg (errorEval valMap radius (depth + 1) $ expZeroR mp arg :: ErrorType) depth
@@ -148,4 +148,85 @@ instance ErrorEvaluable Zero R ErrorType where
 --                        ("expression structure Scalar R is wrong " ++ prettify e)
         | otherwise = error "one r but shape is not [] ??"
 
+
+
+-- |
+--
+instance ErrorEvaluable One R (Array Int ErrorType) where
+    errorEval :: ValMaps -> Double -> Int -> Expression One R -> Array Int ErrorType
+    errorEval valMap radius depth e@(Expression n mp)
+        | [size] <- retrieveShape n mp =
+            let fmap :: (a -> c) -> Array Int a -> Array Int c
+                fmap f arr =
+                    listArray
+                        (0, size - 1)
+                        [f x | i <- [0 .. size - 1], let x = arr ! i]
+                zipWith ::
+                       ([a] -> Int -> a)
+                    -> Int
+                    -> Array Int a
+                    -> Array Int a
+                    -> Array Int a
+                zipWith f depth arr1 arr2 =
+                    listArray
+                        (0, size - 1)
+                        [ f [x,y] depth
+                        | i <- [0 .. size - 1]
+                        , let x = arr1 ! i
+                        , let y = arr2 ! i
+                        ]
+                foldl1' :: ([a] -> Int -> a) -> Int -> [Array Int a] -> Array Int a
+                foldl1' f depth [x] = x
+                foldl1' f depth (x:xs) = zipWith f depth x (foldl1' f depth xs)
+             in case retrieveNode n mp of
+                    Var name ->
+                        case Map.lookup name $ vm1 valMap of
+                            Just val -> constantErorCalc radius depth val
+                            _ -> error "no value associated with the variable"
+                    Const val -> listArray (0, size - 1) $ replicate size (0,val,[val,val])
+                    Sum R args -> foldl1' intervalSum depth . map (errorEval valMap radius (depth +1) . expOneR mp) $ args
+--                    Mul R args ->
+--                        foldl1' (*) . map (eval valMap . expOneR mp) $ args
+--                    Power x arg -> fmap (^ x) (eval valMap $ expOneR mp arg)
+--                    Neg R arg -> fmap negate . eval valMap $ expOneR mp arg
+--                    Scale R arg1 arg2 ->
+--                        let scalar = eval valMap $ expZeroR mp arg1
+--                         in fmap (scalar *) . eval valMap $ expOneR mp arg2
+--                    Div arg1 arg2 ->
+--                        zipWith
+--                            (/)
+--                            (eval valMap $ expOneR mp arg2)
+--                            (eval valMap $ expOneR mp arg2)
+--                    Sqrt arg -> fmap sqrt . eval valMap $ expOneR mp arg
+--                    Sin arg -> fmap sin . eval valMap $ expOneR mp arg
+--                    Cos arg -> fmap cos . eval valMap $ expOneR mp arg
+--                    Tan arg -> fmap tan . eval valMap $ expOneR mp arg
+--                    Exp arg -> fmap exp . eval valMap $ expOneR mp arg
+--                    Log arg -> fmap log . eval valMap $ expOneR mp arg
+--                    Sinh arg -> fmap sinh . eval valMap $ expOneR mp arg
+--                    Cosh arg -> fmap cosh . eval valMap $ expOneR mp arg
+--                    Tanh arg -> fmap tanh . eval valMap $ expOneR mp arg
+--                    Asin arg -> fmap asin . eval valMap $ expOneR mp arg
+--                    Acos arg -> fmap acos . eval valMap $ expOneR mp arg
+--                    Atan arg -> fmap atan . eval valMap $ expOneR mp arg
+--                    Asinh arg -> fmap asinh . eval valMap $ expOneR mp arg
+--                    Acosh arg -> fmap acosh . eval valMap $ expOneR mp arg
+--                    Atanh arg -> fmap atanh . eval valMap $ expOneR mp arg
+--                    RealPart arg -> fmap realPart . eval valMap $ expOneC mp arg
+--                    ImagPart arg -> fmap imagPart . eval valMap $ expOneC mp arg
+--                    -- Rotate rA arg ->
+--                    Piecewise marks conditionArg branchArgs ->
+--                        let cdt = eval valMap $ expOneR mp conditionArg
+--                            branches = map (eval valMap . expOneR mp) branchArgs
+--                         in listArray
+--                                (0, size - 1)
+--                                [ chosen ! i
+--                                | i <- [0 .. size - 1]
+--                                , let chosen =
+--                                          chooseBranch marks (cdt ! i) branches
+--                                ]
+--                    Rotate [amount] arg ->
+--                        rotate1D size amount (eval valMap $ expOneR mp arg)
+--                    _ -> error "expression structure One R is wrong"
+        | otherwise = error "one r but shape is not [size] ??"
 
