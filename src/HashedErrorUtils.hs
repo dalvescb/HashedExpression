@@ -257,6 +257,20 @@ instance ErrorTrace (Array Int Double) (Array Int [Double]) where
     in trace errorString input
 
 
+instance ErrorTrace (Array (Int, Int) Double) (Array (Int, Int) [Double]) where
+-- | Class for Tracing the Error amount
+  errorTracer::
+    Array (Int, Int) Double ->  -- ^ Error amount
+    Array (Int, Int) [Double] -> -- ^ Error bound
+    Int -> -- ^ Calculation depth
+    a -> -- ^ input that just going to path throw function
+    a  -- ^ output same as input
+  errorTracer errorAmount errorBound calcDepth input =
+    let errorString = "The Expression depth is " ++ show calcDepth ++ ", and The error amount for the bound "
+                    ++ show errorBound ++ " is " ++ show errorAmount ++ "."
+    in trace errorString input
+
+
 {--
     ==============================================================
     ==  Functions for calculating constant Values Error errors  ==
@@ -266,45 +280,22 @@ instance ErrorTrace (Array Int Double) (Array Int [Double]) where
 -- | Class for calculating the error amount for variables
 class ConstantErorrCalc input output  where
   constantErorCalc ::
-    Double ->   -- ^ Radius that will be used for interval calculation
     Int ->    -- ^ Depth of the expression
+    Double ->   -- ^ Radius that will be used for interval calculation
     input ->      -- ^ Input Variable as Double, 1d, 2d or 3d array
     output         -- ^ Output same as input variable
 
 -- | Calculate and generate the interval for variables
 instance ConstantErorrCalc Double ErrorType where
   constantErorCalc ::
-    Double -- ^ Radius that will be used for interval calculation
-    -> Int -- ^ Depth of the expression
+    Int -- ^ Depth of the expression
+    -> Double -- ^ Radius that will be used for interval calculation
     -> Double -- ^ Input Variable as Double, 1d, 2d or 3d array
     -> ErrorType -- ^ Output same as input variable
-  constantErorCalc radius depth input  =
+  constantErorCalc depth radius input  =
     let errorBound = getInterval radius input -- Calculate the interval based on the radius amount
         stdAmount = stdDev errorBound -- Calculate the generated interval's standard deviation amount
     in errorTracer stdAmount errorBound depth (stdAmount,input,errorBound)
-
-
- -- | Calculate and generate the interval for variables
-instance ConstantErorrCalc (Array Int Double) (Array Int ErrorType) where
-  constantErorCalc ::
-    Double -- ^ Radius that will be used for interval calculation
-    -> Int -- ^ Depth of the expression
-    -> Array Int Double -- ^ Input Variable as Double, 1d, 2d or 3d array
-    -> Array Int ErrorType -- ^ Output same as input variable
-  constantErorCalc radius depth input  =
-    let getSize :: Array Int a -> Int
-        getSize arr = snd $ bounds arr
-        fmap :: (a -> c) -> Array Int a -> Array Int c
-        fmap f arr =
-            let size = getSize input
-            in listArray (0, size) [f x | i <- [0 .. size], let x = arr ! i]
-        fmerg ::  Array Int Double -> Array Int Double -> Array Int [Double] -> Array Int ErrorType
-        fmerg stdAmountArr exactAmountArr errorBoundArr =
-            let size = getSize exactAmountArr
-            in listArray (0, size) [(x,y,z) | i <- [0 .. size], let x = stdAmountArr ! i, let y = exactAmountArr ! i , let z = errorBoundArr !i]
-        errorBound = fmap (getInterval radius) input -- Calculate the interval based on the radius amount
-        stdAmount = fmap stdDev errorBound -- Calculate the generated interval's standard deviation amount
-    in errorTracer stdAmount errorBound depth $ fmerg stdAmount input errorBound
 
 
 
@@ -386,13 +377,13 @@ instance ProductCalculation [ErrorType] ErrorType where
 -- | Class for Neg interval calculation
 class NegCalculation input output where
     intervalNeg ::
-      input -> -- ^ Input : input of the interval Sum function - could be either list or array of ErrorType
       Int -> -- ^ Depth of the calculations
+      input -> -- ^ Input : input of the interval Sum function - could be either list or array of ErrorType
       output -- ^ Output : Output of the interval Sum function - could be either list or array of ErrorType
 
 instance NegCalculation ErrorType ErrorType where
-  intervalNeg ::  ErrorType -> Int -> ErrorType
-  intervalNeg inputInterval depth =
+  intervalNeg ::  Int -> ErrorType -> ErrorType
+  intervalNeg depth inputInterval  =
     let (_,exactAmount,errorBound) = inputInterval
         primaryNegInterval = map negate errorBound
         lowerBound = minimum primaryNegInterval
@@ -412,14 +403,14 @@ instance NegCalculation ErrorType ErrorType where
 -- | Class for Power interval calculation
 class PowerCalculation input output where
   intervalPower ::
-      input -> -- ^ Input : input of the interval Power function - could be either list or array of ErrorType
-      Int -> -- ^ Input : Power value as integer
       Int -> -- ^ Depth of the calculations
+      Int -> -- ^ Input : Power value as integer
+      input -> -- ^ Input : input of the interval Power function - could be either list or array of ErrorType
       output -- ^ Output : Output of the interval Sum function - could be either list or array of ErrorType
 
 instance PowerCalculation ErrorType ErrorType where
-  intervalPower ::  ErrorType -> Int -> Int -> ErrorType
-  intervalPower inputInterval power depth =
+  intervalPower ::   Int -> Int -> ErrorType ->  ErrorType
+  intervalPower depth power inputInterval   =
     let (_,exactAmount,errorBound) = inputInterval
         primaryNegInterval = map (^ power) errorBound
         lowerBound = minimum primaryNegInterval
@@ -440,16 +431,16 @@ instance PowerCalculation ErrorType ErrorType where
 -- | Class for Div interval calculation
 class DivCalculation nom den output where
   intervalDiv ::
+      Int -> -- ^ Depth of the calculations
       nom -> -- ^ Input : Nominator of the fraction - could be either list or array of ErrorType
       den -> -- ^ Input : Denominator of the fraction - could be either list or array of ErrorType
-      Int -> -- ^ Depth of the calculations
       output -- ^ Output : Output of the interval Sum function - could be either list or array of ErrorType
 
 -- | Div interval operation for Real numbers
 instance DivCalculation ErrorType ErrorType ErrorType where
-  intervalDiv ::  ErrorType -> ErrorType -> Int -> ErrorType
-  intervalDiv nom den depth =
-    let newDen = intervalPower den (-1) depth
+  intervalDiv ::  Int -> ErrorType -> ErrorType -> ErrorType
+  intervalDiv depth nom den  =
+    let newDen = intervalPower depth  (-1) den
         devResult = intervalProduct [nom,newDen] depth
         (newErrorAmount,exactAmount,newErrorBound) = devResult
      in errorTracer newErrorAmount newErrorBound depth devResult
@@ -464,15 +455,15 @@ instance DivCalculation ErrorType ErrorType ErrorType where
 -- | Class for Sqrt interval calculation
 class SqrtCalculation input output where
     intervalSqrt ::
-      input -> -- ^ Input : input of the interval Sum function - could be either list or array of ErrorType
       Int -> -- ^ Depth of the calculations
+      input -> -- ^ Input : input of the interval Sum function - could be either list or array of ErrorType
       output -- ^ Output : Output of the interval Sum function - could be either list or array of ErrorType
 
 
 -- | Sqrt interval calculation for real numbers
 instance SqrtCalculation ErrorType ErrorType where
-  intervalSqrt ::  ErrorType -> Int -> ErrorType
-  intervalSqrt inputInterval depth =
+  intervalSqrt ::  Int -> ErrorType -> ErrorType
+  intervalSqrt depth inputInterval  =
     let (_,exactAmount,errorBound) = inputInterval
         primarySqrtInterval = map P.sqrt errorBound
         lowerBound = minimum primarySqrtInterval
@@ -484,22 +475,22 @@ instance SqrtCalculation ErrorType ErrorType where
 
 {--
         =====================================
-        ==  Sqrt Error bound calculation   ==
+        ==  Log Error bound calculation   ==
         =====================================
 -}
 
 -- | Class for Log interval calculation
 class LogCalculation input output where
     intervalLog ::
-      input -> -- ^ Input : input of the interval Sum function - could be either list or array of ErrorType
       Int -> -- ^ Depth of the calculations
+      input -> -- ^ Input : input of the interval Sum function - could be either list or array of ErrorType
       output -- ^ Output : Output of the interval Sum function - could be either list or array of ErrorType
 
 
 -- | Sqrt interval calculation for real numbers
 instance LogCalculation ErrorType ErrorType where
-  intervalLog ::  ErrorType -> Int -> ErrorType
-  intervalLog inputInterval depth =
+  intervalLog ::  Int -> ErrorType -> ErrorType
+  intervalLog depth inputInterval =
     let (_,exactAmount,errorBound) = inputInterval
         primarySqrtInterval = map P.log errorBound
         lowerBound = minimum primarySqrtInterval
