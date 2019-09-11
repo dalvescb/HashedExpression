@@ -10,6 +10,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE RoleAnnotations #-}
 {-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE PolyKinds #-}
 
 module HashedExpression where
 
@@ -19,7 +20,7 @@ import Data.IntMap (IntMap)
 import qualified Data.IntMap.Strict as IM
 import Data.Proxy (Proxy)
 import Data.Typeable (Typeable, typeRep)
-import GHC.TypeLits (Nat)
+import GHC.TypeLits 
 import Prelude hiding
     ( (*)
     , (+)
@@ -66,6 +67,22 @@ data Two
 
 data Three
     deriving (DimensionType, Typeable)
+    
+-- | Experiment with Nat kind
+--
+
+--class D1 (n :: Nat) 
+--
+--class D2 (m :: Nat) (n :: Nat)
+--
+--class D3 (m :: Nat) (n :: Nat) (p :: Nat)
+
+instance KnownNat n => DimensionType n
+
+instance (KnownNat m, KnownNat n) => DimensionType '(m, n)
+
+instance (KnownNat m, KnownNat n, KnownNat p) => DimensionType '(m, n, p)
+
 
 -- | Classes as constraints
 --
@@ -85,7 +102,7 @@ class (DimensionType d, Addable et, NumType s) =>
       VectorSpace d et s
 
 
-class VectorSpace d s s =>
+class (DimensionType d, VectorSpace d s s) =>
       InnerProductSpace d s
 
 
@@ -94,7 +111,6 @@ class VectorSpace d s s =>
 -- the constraints later, therefore it will show overlap instances error if we declare more instances of VectorSpace if
 -- if the arguments don't satisfy the constraints
 --
---instance {-# OVERLAPPABLE #-} ElementType et => Addable et
 instance {-# OVERLAPPABLE #-} (ElementType et, Addable et, DimensionType d) =>
                               VectorSpace d et R
 
@@ -102,7 +118,7 @@ instance (DimensionType d) => VectorSpace d C C
 
 instance (DimensionType d) => VectorSpace d Covector R
 
-instance VectorSpace d s s => InnerProductSpace d s
+instance (DimensionType d, VectorSpace d s s) => InnerProductSpace d s
 
 -- | Classes for operations so that both Expression and Pattern (in HashedPattern) can implement
 --

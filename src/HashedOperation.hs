@@ -12,8 +12,10 @@ module HashedOperation where
 import Data.Array
 import Data.IntMap.Strict (fromList, union, unions)
 import Data.List (sort)
+import Data.Proxy
 import qualified Data.Set as Set
 import GHC.Stack (HasCallStack)
+import GHC.TypeLits (KnownNat, natVal)
 import HashedExpression
 import HashedHash
 import HashedInner
@@ -43,6 +45,74 @@ import Prelude hiding
     , tanh
     )
 import qualified Prelude
+
+-- | Experiment with dependent type
+--
+var1d' ::
+       forall n. (KnownNat n)
+    => String
+    -> Expression n R
+var1d' name = Expression h (fromList [(h, node)])
+  where
+    size = fromIntegral $ natVal (Proxy :: Proxy n)
+    node = ([size], Var name)
+    h = hash node
+    
+var2d' ::
+       forall m n. (KnownNat m, KnownNat n)
+    => String
+    -> Expression '(m, n) R
+var2d' name = Expression h (fromList [(h, node)])
+  where
+    size1 = fromIntegral $ natVal (Proxy :: Proxy m)
+    size2 = fromIntegral $ natVal (Proxy :: Proxy n)
+    node = ([size1, size2], Var name)
+    h = hash node
+    
+var3d' ::
+       forall m n p. (KnownNat m, KnownNat n, KnownNat p)
+    => String
+    -> Expression '(m, n, p) R
+var3d' name = Expression h (fromList [(h, node)])
+  where
+    size1 = fromIntegral $ natVal (Proxy :: Proxy m)
+    size2 = fromIntegral $ natVal (Proxy :: Proxy n)
+    size3 = fromIntegral $ natVal (Proxy :: Proxy p)
+    node = ([size1, size2, size3], Var name)
+    h = hash node
+    
+const1d' ::
+       forall n. (KnownNat n)
+    => Double
+    -> Expression n R
+const1d' val = Expression h (fromList [(h, node)])
+  where
+    size = fromIntegral $ natVal (Proxy :: Proxy n)
+    node = ([size], Const val)
+    h = hash node
+    
+const2d' ::
+       forall m n. (KnownNat m, KnownNat n)
+    => Double
+    -> Expression '(m, n) R
+const2d' val = Expression h (fromList [(h, node)])
+  where
+    size1 = fromIntegral $ natVal (Proxy :: Proxy m)
+    size2 = fromIntegral $ natVal (Proxy :: Proxy n)
+    node = ([size1, size2], Const val)
+    h = hash node
+    
+const3d' ::
+       forall m n p. (KnownNat m, KnownNat n, KnownNat p)
+    => Double
+    -> Expression '(m, n, p) R
+const3d' val = Expression h (fromList [(h, node)])
+  where
+    size1 = fromIntegral $ natVal (Proxy :: Proxy m)
+    size2 = fromIntegral $ natVal (Proxy :: Proxy n)
+    size3 = fromIntegral $ natVal (Proxy :: Proxy p)
+    node = ([size1, size2, size3], Const val)
+    h = hash node
 
 -- | Create primitive expressions
 --
@@ -199,7 +269,7 @@ instance (DimensionType d) => NumOp (Expression d R) where
 
 -- | inner product
 --
-instance (InnerProductSpace d s) =>
+instance (DimensionType d, InnerProductSpace d s) =>
          InnerProductSpaceOp (Expression d s) (Expression d s) (Expression Zero s) where
     (<.>) :: Expression d s -> Expression d s -> Expression Zero s
     (<.>) e1 e2 =
