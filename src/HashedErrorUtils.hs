@@ -56,7 +56,7 @@ type ErrorType = (Double, Double , [Double])
 -- Double : Error amount based on the standard deviation
 -- Double : Exact amount for the function
 -- [Double] : Error bound calculated based on the different sub operations
-type ErrorTypeC = (Complex Double, Complex Double , [Complex Double])
+type ErrorTypeC = (Double, Complex Double , [Complex Double])
 
 -- | One dimension Error data type
 -- Double : Error amount based on the standard deviation
@@ -129,12 +129,26 @@ intervalGen radius val = [val P.- radius, val P.+ radius]
 
 -- | Class for calculating the intervals
 class InterValGenCLass val interval where
-  getInterval :: Double -> val -> interval
+  getInterval ::
+    Double -> -- ^ Radius
+    val -> -- ^ input Value
+    interval -- ^ Generated Interval
 
 -- | Instance of function "getInterval" for generating a interval of double numbers based on an double input
 instance InterValGenCLass Double [Double] where
   getInterval :: Double -> Double -> [Double]
   getInterval = intervalGen
+
+-- | Generate the Interval for complex numbers in 0 dimension 
+instance InterValGenCLass (Complex Double) [Complex Double] where
+  getInterval :: Double -> Complex Double -> [Complex Double]
+  getInterval radius val =
+    let realInterval = intervalGen radius $ realPart val
+        imgInterval =  intervalGen radius $ imagPart val
+        lowerBound =  head realInterval :+ head imgInterval
+        upperBound = realInterval !! 1 :+  imgInterval !! 1
+    in [lowerBound, upperBound]
+
 
 -- | Instance of function "getInterval" for generating a interval of a 1d array numbers
 instance InterValGenCLass (Array Int Double) (Array Int [Double]) where
@@ -160,23 +174,57 @@ instance InterValGenCLass (Array (Int,Int,Int) Double) (Array (Int,Int,Int) [Dou
 -- | For calculation of length for the list
 length' = fromIntegral . length
 
+class MeanClass input output where
+  mean :: input -> output
+
 -- | Calculating the mean of the interval
-mean :: [Double] -> Double
-mean = (P./) <$> sum <*> length' -- Calculating the amount of Mean
+instance MeanClass [Double] Double where
+  mean :: [Double] -> Double
+  mean = (P./) <$> sum <*> length' -- Calculating the amount of Mean
+
+class VarianceClass input output where
+  variance :: input -> output
 
 -- | Calculating the variance of an interval
-variance :: [Double] -> Double
-variance list =
-  let avg = mean list
-      summedElements = sum (map (\x -> (x P.- avg) P.^ 2) list) -- Nominator for the Std calculation
-      lengthX = length' list -- Denominator for Std calculation
-   in summedElements P./ lengthX
+instance VarianceClass [Double] Double where
+  variance :: [Double] -> Double
+  variance list =
+    let avg = mean list
+        summedElements = sum (map (\x -> (x P.- avg) P.^ 2) list) -- Nominator for the Std calculation
+        lengthX = length' list -- Denominator for Std calculation
+    in summedElements P./ lengthX
+
+instance VarianceClass [Complex Double] Double where
+  variance :: [Complex Double] -> Double
+  variance list =
+     let realPartList = map realPart list
+         imagPartList = map imagPart list
+         realAvg = mean realPartList
+         imagAvg= mean imagPartList
+         realSummedElements = sum (map (\x -> (x P.- realAvg) P.^ 2) realPartList) -- Nominator for the Std calculation
+         imagSummedElements = sum (map (\x -> (x P.- imagAvg) P.^ 2) imagPartList) -- Nominator for the Std calculation
+         realLengthX = length' realPartList -- Denominator for Std calculation
+         imageLengthX = length' imagPartList -- Denominator for Std calculation
+     in (realSummedElements P./ realLengthX) + (imagSummedElements P./ imageLengthX)
+
+
+class StandardDeviationClass input output where
+  stdDev :: input -> output
 
 -- | Calculate standard deviation for an interval
-stdDev ::
-  [Double] -> -- ^ Target Interval
-   Double -- ^ out put std value
-stdDev list = P.sqrt $ variance list
+
+instance StandardDeviationClass [Double] Double where
+  stdDev ::
+    [Double] -> -- ^ Target Interval
+    Double -- ^ out put std value
+  stdDev list = P.sqrt $ variance list
+
+
+instance StandardDeviationClass [Complex Double] Double where
+  stdDev ::
+    [Complex Double] -> -- ^ Target Interval
+    Double -- ^ out put std value
+  stdDev list = P.sqrt $ variance list
 
 
 {--
@@ -243,6 +291,20 @@ instance ErrorTrace Double [Double] where
     in trace errorString input
 
 
+instance ErrorTrace Double [Complex Double] where
+-- | Class for Tracing the Error amount
+  errorTracer::
+    Double ->  -- ^ Error amount
+    [Complex Double] -> -- ^ Error bound
+    Int -> -- ^ Calculation depth
+    a -> -- ^ input that just going to path throw function
+    a  -- ^ output same as input
+  errorTracer errorAmount errorBound calcDepth input =
+    let errorString = "The Expression depth is " ++ show calcDepth ++ ", and The error amount for the bound "
+                    ++ show errorBound ++ " is " ++ show errorAmount ++ "."
+    in trace errorString input
+
+
 instance ErrorTrace (Array Int Double) (Array Int [Double]) where
 -- | Class for Tracing the Error amount
   errorTracer::
@@ -297,6 +359,18 @@ instance ConstantErorrCalc Double ErrorType where
         stdAmount = stdDev errorBound -- Calculate the generated interval's standard deviation amount
     in errorTracer stdAmount errorBound depth (stdAmount,input,errorBound)
 
+
+-- | Calculate and generate the interval for variables
+instance ConstantErorrCalc (Complex Double) ErrorTypeC where
+  constantErorCalc ::
+    Int -- ^ Depth of the expression
+    -> Double -- ^ Radius that will be used for interval calculation
+    -> Complex Double -- ^ Input Complex value
+    -> ErrorTypeC -- ^ Complex Error Type
+  constantErorCalc depth radius input  =
+    let errorBound = getInterval radius input -- Calculate the interval based on the radius amount
+        stdAmount = stdDev errorBound -- Calculate the generated interval's standard deviation amount
+    in errorTracer stdAmount errorBound depth (stdAmount,input,errorBound)
 
 
   {--

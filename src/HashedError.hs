@@ -63,7 +63,7 @@ addLists (xs:xss) = zipWith (+) xs (addLists xss)
 class ErrorEvaluable d rc output where
   errorEval :: ValMaps -> Double -> Int -> Expression d rc -> output
 
--- |
+-- | Error Evaluation for Zero-dimension Real Numbers
 --
 instance ErrorEvaluable Zero R ErrorType where
     errorEval :: ValMaps -> Double -> Int -> Expression Zero R -> ErrorType
@@ -148,7 +148,90 @@ instance ErrorEvaluable Zero R ErrorType where
 --                        ("expression structure Scalar R is wrong " ++ prettify e)
         | otherwise = error "one r but shape is not [] ??"
 
-
+-- | Error Evaluation for Zero-dimension Real Numbers
+--
+instance ErrorEvaluable Zero C ErrorTypeC where
+    errorEval :: ValMaps -> Double -> Int -> Expression Zero C -> ErrorTypeC
+    errorEval valMap radius depth e@(Expression n mp)
+        | [] <- retrieveShape n mp =
+            case retrieveNode n mp of
+                Var name ->
+                    case Map.lookup name $ vm0 valMap of
+                        Just val -> constantErorCalc depth radius  val
+                        _ -> error "no value associated with the variable"
+--                Const val -> (0,val,[val,val]) -- For constant value we are not going to calculate any error bound
+--                Sum R args -> intervalSum (map (errorEval valMap radius (depth + 1) . expZeroR mp) args :: [ErrorType]) depth
+--                Mul R args -> intervalProduct (map (errorEval valMap radius (depth + 1) . expZeroR mp) args :: [ErrorType]) depth
+--                Neg R arg -> intervalNeg depth (errorEval valMap radius (depth + 1) $ expZeroR mp arg :: ErrorType)
+--                Scale R arg1 arg2 ->
+--                  let intervalToCalc = [errorEval valMap radius (depth + 1) (expZeroR mp arg1) :: ErrorType
+--                                        , errorEval valMap radius (depth + 1) (expZeroR mp arg2) :: ErrorType]
+--                  in  intervalProduct intervalToCalc depth
+--                Power x arg ->
+--                  let expressionValue = errorEval valMap radius (depth + 1) (expZeroR mp arg) :: ErrorType
+--                  in intervalPower depth x expressionValue
+--                Div arg1 arg2 ->
+--                  let divArg1 = errorEval valMap radius (depth + 1) (expZeroR mp arg1) :: ErrorType
+--                      divArg2 = errorEval valMap radius (depth + 1) (expZeroR mp arg2) :: ErrorType
+--                  in intervalDiv  depth divArg1 divArg2
+--                Sqrt arg -> intervalSqrt  depth (errorEval valMap radius (depth + 1) (expZeroR mp arg) :: ErrorType)
+--                Log arg -> intervalLog depth (errorEval valMap radius (depth + 1) (expZeroR mp arg) :: ErrorType)
+--                Sin arg -> sin (eval valMap (expZeroR mp arg))
+--                Cos arg -> cos (eval valMap (expZeroR mp arg))
+--                Tan arg -> tan (eval valMap (expZeroR mp arg))
+--                Exp arg -> exp (eval valMap (expZeroR mp arg))
+--                Sinh arg -> sinh (eval valMap (expZeroR mp arg))
+--                Cosh arg -> cosh (eval valMap (expZeroR mp arg))
+--                Tanh arg -> tanh (eval valMap (expZeroR mp arg))
+--                Asin arg -> asin (eval valMap (expZeroR mp arg))
+--                Acos arg -> acos (eval valMap (expZeroR mp arg))
+--                Atan arg -> atan (eval valMap (expZeroR mp arg))
+--                Asinh arg -> asinh (eval valMap (expZeroR mp arg))
+--                Acosh arg -> acosh (eval valMap (expZeroR mp arg))
+--                Atanh arg -> atanh (eval valMap (expZeroR mp arg))
+--                RealPart arg -> realPart (eval valMap (expZeroC mp arg))
+--                ImagPart arg -> imagPart (eval valMap (expZeroC mp arg))
+--                InnerProd R arg1 arg2 ->
+--                    case retrieveShape arg1 mp of
+--                        [] ->
+--                            eval valMap (expZeroR mp arg1) *
+--                            eval valMap (expZeroR mp arg2)
+--                        [size] ->
+--                            let res1 = eval valMap $ expOneR mp arg1
+--                                res2 = eval valMap $ expOneR mp arg2
+--                             in sum [ x * y
+--                                    | i <- [0 .. size - 1]
+--                                    , let x = res1 ! i
+--                                    , let y = res2 ! i
+--                                    ]
+--                        [size1, size2] ->
+--                            let res1 = eval valMap $ expTwoR mp arg1
+--                                res2 = eval valMap $ expTwoR mp arg2
+--                             in sum [ x * y
+--                                    | i <- [0 .. size1 - 1]
+--                                    , j <- [0 .. size2 - 1]
+--                                    , let x = res1 ! (i, j)
+--                                    , let y = res2 ! (i, j)
+--                                    ]
+--                        [size1, size2, size3] ->
+--                            let res1 = eval valMap $ expThreeR mp arg1
+--                                res2 = eval valMap $ expThreeR mp arg2
+--                             in sum [ x * y
+--                                    | i <- [0 .. size1 - 1]
+--                                    , j <- [0 .. size2 - 1]
+--                                    , k <- [0 .. size3 - 1]
+--                                    , let x = res1 ! (i, j, k)
+--                                    , let y = res2 ! (i, j, k)
+--                                    ]
+--                        _ -> error "4D shape?"
+--                Piecewise marks conditionArg branchArgs ->
+--                    let cdt = eval valMap $ expZeroR mp conditionArg
+--                        branches = map (eval valMap . expZeroR mp) branchArgs
+--                     in chooseBranch marks cdt branches
+--                _ ->
+--                    error
+--                        ("expression structure Scalar R is wrong " ++ prettify e)
+        | otherwise = error "one r but shape is not [] ??"
 
 -- | Error  Estimation for 1D arrays
 --
