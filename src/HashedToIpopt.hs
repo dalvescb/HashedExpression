@@ -29,7 +29,11 @@ identMultLowerX = "mult_x_L"
 identMultUpperX = "mult_x_U"
 identObjective  = "obj"
 identCounter    = "i"
-
+identEvalf      = "eval_f"
+identEvalg      = "eval_g"
+identEvalGradf   = "eval_grad_f"
+identEvalJacg    = "eval_jac_g"
+identEvalHess    = "eval_h"
 indexType = "Index"
 numberType = "Number"
 
@@ -37,6 +41,28 @@ indent str = "  " ++ str
 
 -- | Templates
 --
+
+mainTemplate :: [T.Text]
+mainTemplate =
+  let
+    nele_jac = undefined -- TODO define nele_jac from MemMap
+    nele_hess = undefined  -- TODO define nele_hess from MemMap
+  in
+  includesTemplate
+  ++ map T.pack
+     ["int main()"
+     ,"{"]
+  ++ allocateTemplate
+  ++ varInitTemplate
+  ++ createIpoptTemplate nele_jac nele_hess
+  ++ freeBoundsTemplate
+  ++ addOptionsTemplate
+  ++ ipoptSolveTemplate
+  ++ printSolutionTemplate
+  ++ freeSolutionTemplate
+  ++ map T.pack
+     ["  return 0;"
+     ,"}"]
 
 includesTemplate :: [T.Text]
 includesTemplate = map T.pack
@@ -64,25 +90,74 @@ varInitTemplate = map (T.pack . indent)
   ,indexType++" "++identCounter++";                             /* generic counter */"
   ]
 
-mainTemplate :: [T.Text]
-mainTemplate =
-  includesTemplate
-  ++
-  map T.pack
-  ["int main()"
-  ,"{"
-  ]
-  ++
-  allocateTemplate
-  ++
-  varInitTemplate
-  ++
-  map T.pack
-  ["  return 0;"
-  ,"}"]
-
 allocateTemplate :: [T.Text]
-allocateTemplate = undefined
+allocateTemplate = undefined -- TODO finish allocateTemplate (break up into before/after createIpopt)
+                             -- allocate bounds/constraints before / x and bound multipliers after
+
+initializeTemplate :: [T.Text]
+initializeTemplate = undefined -- TODO finish initializeTemplate (break up into before/after createIpopt)
+                               -- initialize bounds and constraints before, initial point after
+
+createIpoptTemplate :: Int -> Int -> [T.Text]
+createIpoptTemplate nele_jac nele_hess = map (T.pack . indent)
+  [ identIpoptProblem ++ " = CreateIpoptProblem("
+  ++ identNumVars ++ ","
+  ++ identLowerBoundsX ++ ","
+  ++ identUpperBoundsX ++ ","
+  ++ identNumConstraints ++ ","
+  ++ identLowerBoundsG ++ ","
+  ++ identUpperBoundsG ++ ","
+  ++ identUpperBoundsG ++ ","
+  ++ show nele_jac ++ ","
+  ++ show nele_hess ++ ","
+  ++ "0," -- index style (start counting row/column indices at 0)
+  ++ "&" ++ identEvalf ++ ","
+  ++ "&" ++ identEvalg ++ ","
+  ++ "&" ++ identEvalGradf ++ ","
+  ++ "&" ++ identEvalJacg ++ ","
+  ++ "&" ++ identEvalHess
+  ++ ");"
+  ]
+
+freeBoundsTemplate :: [T.Text]
+freeBoundsTemplate = map (T.pack . indent)
+  [ "free(" ++ identLowerBoundsX ++ ");"
+  , "free(" ++ identUpperBoundsX ++ ");"
+  , "free(" ++ identLowerBoundsG ++ ");"
+  , "free(" ++ identUpperBoundsG ++ ");"
+  ]
+
+-- TODO un-hardcode addOptionsTemplate
+addOptionsTemplate :: [T.Text]
+addOptionsTemplate = map (T.pack . indent)
+  ["AddIpoptNumOption(nlp, \"tol\", 1e-5);"
+  ,"AddIpoptStrOption(nlp, \"mu_strategy\", \"adaptive\");"
+  ,"AddIpoptNumOption(nlp, \"print_frequency_time\", 10);"
+  ]
+
+ipoptSolveTemplate :: [T.Text]
+ipoptSolveTemplate = map (T.pack . indent)
+  [identStatus ++ " = IpoptSolve("
+  ++ identIpoptProblem ++ ","
+  ++ identVarX ++ ","
+  ++ "NULL,"
+  ++ "&" ++ identObjective ++ ","
+  ++ "NULL,"
+  ++ identMultLowerX ++ ","
+  ++ identMultUpperX ++ ","
+  ++ "NULL);"
+  ]
+
+printSolutionTemplate :: [T.Text]
+printSolutionTemplate = undefined -- TODO finish printSolutionTemplate
+
+freeSolutionTemplate :: [T.Text]
+freeSolutionTemplate = map (T.pack . indent)
+  ["FreeIpoptProblem(" ++ identIpoptProblem ++ ");"
+  ,"free(" ++ identVarX ++ ");"
+  ,"free(" ++ identMultLowerX ++ ");"
+  ,"free(" ++ identMultUpperX ++ ");"
+  ]
 
 --   /* set the number of variables and allocate space for the bounds */
 --   n=4;
