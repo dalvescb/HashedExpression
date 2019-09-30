@@ -1,64 +1,149 @@
-{-# LANGUAGE ScopedTypeVariables, PatternGuards #-}
+{-# LANGUAGE TypeApplications,DataKinds #-}
 
 module HashedToIpopt where
 
-
-import HashedToC
 import HashedExpression
+import HashedUtils
+import HashedNode
+import HashedToC
+import HashedSolver
+import HashedDerivative
+import HashedExpression
+import HashedInterp
+import HashedNormalize
+import HashedOperation hiding (product, sum)
+import qualified HashedOperation
+import HashedPrettify
 
 import qualified Data.Text as T
+import qualified Data.Text.IO as TIO
+
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as I
 import Data.List as L
 
 --import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as C
+import Data.Maybe
+import qualified Data.Set as Set
 
+import Prelude hiding
+    ( (*)
+    , (+)
+    , (-)
+    , (/)
+    , (^)
+    , acos
+    , acosh
+    , asin
+    , asinh
+    , atan
+    , atanh
+    , const
+    , cos
+    , cosh
+    , exp
+    , log
+    , negate
+    , product
+    , sin
+    , sinh
+    , sqrt
+    , sum
+    , tan
+    , tanh
+    )
+  
 -- | Variable and Type Identifiers
 --
-identNumVars = "n"
-identNumConstraints = "m"
-identLowerBoundsX = "x_L"
-identUpperBoundsX = "x_U"
-identLowerBoundsG = "g_L"
-identUpperBoundsG = "g_U"
-identIpoptProblem = "nlp"
-identStatus = "status"
-identVarX   = "x"
-identMultLowerX = "mult_x_L"
-identMultUpperX = "mult_x_U"
-identObjective  = "obj"
-identCounter    = "i"
-identEvalf      = "eval_f"
-identEvalg      = "eval_g"
-identEvalGradf   = "eval_grad_f"
-identEvalJacg    = "eval_jac_g"
-identEvalHess    = "eval_h"
-indexType = "Index"
-numberType = "Number"
+idNumVars = "n"
+idINPUTSIZE = "INPUTSIZE"
+idMEMSIZE   = "MEMSIZE"
+idNumConstraints = "m"
+idIndex = "ind"
+idLowerBoundsX = "x_L"
+idUpperBoundsX = "x_U"
+idLowerBoundsG = "g_L"
+idUpperBoundsG = "g_U"
+idIpoptProblem = "nlp"
+idStatus     = "status"
+idVarX       = "x"
+idMultLowerX = "mult_x_L"
+idMultUpperX = "mult_x_U"
+idObjective  = "obj"
+idCounter    = "i"
+idEvalf      = "eval_f"
+idEvalg      = "eval_g"
+idEvalGradf   = "eval_grad_f"
+idEvalJacg    = "eval_jac_g"
+idEvalHess    = "eval_h"
+idSharedData  = "sdata"
+idNELEJAC = "NELE_JAC"
+idNELEHESS = "NELE_HESS"
+
+typeIdIndex = "Index"
+typeIdNumber = "Number"
+typeIdSharedData = "SharedData"
 
 indent str = "  " ++ str
+padding = map T.pack ["",""]
 
 -- | Templates
 --
-
-mainTemplate :: [T.Text]
-mainTemplate =
+mainTemplate :: ValMaps -> Problem -> [T.Text]
+mainTemplate valMaps (Problem vars objId exprMap memMap) =
   let
-    nele_jac = undefined -- TODO define nele_jac from MemMap
-    nele_hess = undefined  -- TODO define nele_hess from MemMap
+     -- ptr offset (to be used in c code) for the resulting value of the obj function
+     objOffset :: Int
+     objOffset = memOffset memMap objId LookupR
+     -- code for evaluating objective function
+     objEvalCode = generateEvaluatingCodes memMap (exprMap,[objId])
+     -- variables with thier dimensions/sizes
+     varsWithShapes :: [(String, Shape)]
+     varsWithShapes = map (\v -> (varName v, retrieveShape (nodeId v) exprMap)) vars
+     varsWithSizes :: [(String, Int)]
+     varsWithSizes = map (\(vN,vS) -> (vN,product vS)) varsWithShapes
+     -- total number of primal vars (size of idVarX)
+     totalNumVars = sum $ map snd varsWithSizes
+     -- total memory size of SharedData (includes primals and all other nodes)
+     memSize = totalDoubles memMap
+     -- size of jacbian and hessian
+     nele_jac = 0 -- TODO define nele_jac
+     nele_hess = 0  -- TODO is nele_hess correct?
   in
   includesTemplate
+  ++ padding
+  ++ typedefTemplate
+  ++ definesTemplate totalNumVars nele_jac nele_hess memSize
+  ++ padding
+  ++ evalfTemplate objOffset objEvalCode
+  ++ padding
+  ++ evalGradfTemplate undefined undefined -- TODO provide evalGradfTemplate with inputs
+  ++ padding
+  ++ evalhTemplate
+  ++ padding
+  ++ evalgTemplate
+  ++ padding
+  ++ evalJacTemplate
+  ++ padding
   ++ map T.pack
      ["int main()"
      ,"{"]
-  ++ allocateTemplate
-  ++ varInitTemplate
+  ++ varDeclareTemplate
+  ++ padding
+  ++ allocateTemplate objOffset
+  -- ++ initializeTemplate TODO include initializeTemplate in main template
+  ++ padding
   ++ createIpoptTemplate nele_jac nele_hess
+  ++ padding
   ++ freeBoundsTemplate
+  ++ padding
   ++ addOptionsTemplate
+  ++ padding
   ++ ipoptSolveTemplate
-  ++ printSolutionTemplate
+  ++ padding
+  -- ++ printSolutionTemplate TODO include printSolutionTemplate
+  ++ padding
   ++ freeSolutionTemplate
   ++ map T.pack
      ["  return 0;"
@@ -68,31 +153,51 @@ includesTemplate :: [T.Text]
 includesTemplate = map T.pack
   ["#include \"IpStdCInterface.h\""
  ,"#include <stdlib.h>"
- ,"#incldue <assert.h>"
+ ,"#include <assert.h>"
  ,"#include <stdio.h>"
  ,"#include <math.h>"
                    ]
 
-varInitTemplate :: [T.Text]
-varInitTemplate = map (T.pack . indent)
-  [indexType++" "++identNumVars++"=-1;                          /* number of variables */"
-  ,indexType++" "++identNumConstraints++"=-1;                          /* number of constraints */"
-  ,numberType++"* "++identLowerBoundsX++" = NULL;                  /* lower bounds on x */"
-  ,numberType++"* "++identUpperBoundsX++" = NULL;                  /* upper bounds on x */"
-  ,numberType++"* "++identLowerBoundsG++" = NULL;                  /* lower bounds on g */"
-  ,numberType++"* "++identUpperBoundsG++" = NULL;                  /* upper bounds on g */"
-  ,"IpoptProblem "++identIpoptProblem++" = NULL;             /* IpoptProblem */"
-  ,"enum ApplicationReturnStatus "++identStatus++"; /* Solve return code */"
-  ,numberType++"* "++identVarX++" = NULL;                    /* starting point and solution vector */"
-  ,numberType++"* "++identMultLowerX++" = NULL;             /* lower bound multipliers at the solution */"
-  ,numberType++"* "++identMultUpperX++" = NULL;             /* upper bound multipliers at the solution */"
-  ,numberType++" "++identObjective++";                          /* objective value */"
-  ,indexType++" "++identCounter++";                             /* generic counter */"
+typedefTemplate :: [T.Text]
+typedefTemplate = map T.pack
+  ["struct _"++typeIdSharedData++" {"++typeIdNumber++"* data; int data_size; };"
+  ,"typedef struct _"++typeIdSharedData++"* "++typeIdSharedData++";"]
+
+definesTemplate :: Int -> Int -> Int -> Int -> [T.Text]
+definesTemplate inputSize neleJac neleHess memSize = map T.pack
+  ["#define "++idINPUTSIZE ++ "  " ++ show inputSize
+  ,"#define "++idNELEJAC ++ "  " ++ show neleJac
+  ,"#define "++idNELEHESS ++ "  " ++ show neleHess
+  ,"#define "++idMEMSIZE++ "  " ++ show memSize
+  ]
+varDeclareTemplate :: [T.Text]
+varDeclareTemplate = map (T.pack . indent)
+  [typeIdIndex++" "++idNumVars++"=-1;                          /* number of variables */"
+  ,typeIdIndex++" "++idNumConstraints++"=-1;                          /* number of constraints */"
+  ,typeIdNumber++"* "++idLowerBoundsX++" = NULL;                  /* lower bounds on x */"
+  ,typeIdNumber++"* "++idUpperBoundsX++" = NULL;                  /* upper bounds on x */"
+  ,typeIdNumber++"* "++idLowerBoundsG++" = NULL;                  /* lower bounds on g */"
+  ,typeIdNumber++"* "++idUpperBoundsG++" = NULL;                  /* upper bounds on g */"
+  ,"IpoptProblem "++idIpoptProblem++" = NULL;             /* IpoptProblem */"
+  ,"enum ApplicationReturnStatus "++idStatus++"; /* Solve return code */"
+  ,typeIdNumber++"* "++idVarX++" = NULL;                    /* starting point and solution vector */"
+  ,typeIdNumber++"* "++idMultLowerX++" = NULL;             /* lower bound multipliers at the solution */"
+  ,typeIdNumber++"* "++idMultUpperX++" = NULL;             /* upper bound multipliers at the solution */"
+  ,typeIdNumber++" "++idObjective++";                          /* objective value */"
+  ,typeIdIndex++" "++idCounter++";                             /* generic counter */"
+  ,typeIdSharedData++" "++idSharedData++";"
   ]
 
-allocateTemplate :: [T.Text]
-allocateTemplate = undefined -- TODO finish allocateTemplate (break up into before/after createIpopt)
-                             -- allocate bounds/constraints before / x and bound multipliers after
+allocateTemplate :: Int -> [T.Text]
+allocateTemplate objOffset = map (T.pack . indent)
+  [idSharedData ++ " = ("++typeIdSharedData++")malloc(sizeof(struct _"++typeIdSharedData++"));"
+  ,idSharedData ++ "->data = ("++typeIdNumber++"*)malloc(sizeof("++typeIdNumber++")*"++idMEMSIZE++");"
+  ,idSharedData++"->data_size = "++idMEMSIZE++";"
+  ,idVarX++" = &"++idSharedData++"->data["++show objOffset++"];" -- point x to SharedData instead of allocating
+  ,idLowerBoundsX++" = ("++typeIdNumber++"*)malloc(sizeof("++typeIdNumber++")*"++idINPUTSIZE++");"
+  ,idUpperBoundsX++" = ("++typeIdNumber++"*)malloc(sizeof("++typeIdNumber++")*"++idINPUTSIZE++");"
+  -- TODO allocate constraints g_L,g_U in allocateTemplate
+  ]
 
 initializeTemplate :: [T.Text]
 initializeTemplate = undefined -- TODO finish initializeTemplate (break up into before/after createIpopt)
@@ -100,31 +205,31 @@ initializeTemplate = undefined -- TODO finish initializeTemplate (break up into 
 
 createIpoptTemplate :: Int -> Int -> [T.Text]
 createIpoptTemplate nele_jac nele_hess = map (T.pack . indent)
-  [ identIpoptProblem ++ " = CreateIpoptProblem("
-  ++ identNumVars ++ ","
-  ++ identLowerBoundsX ++ ","
-  ++ identUpperBoundsX ++ ","
-  ++ identNumConstraints ++ ","
-  ++ identLowerBoundsG ++ ","
-  ++ identUpperBoundsG ++ ","
-  ++ identUpperBoundsG ++ ","
+  [ idIpoptProblem ++ " = CreateIpoptProblem("
+  ++ idNumVars ++ ","
+  ++ idLowerBoundsX ++ ","
+  ++ idUpperBoundsX ++ ","
+  ++ idNumConstraints ++ ","
+  ++ idLowerBoundsG ++ ","
+  ++ idUpperBoundsG ++ ","
+  ++ idUpperBoundsG ++ ","
   ++ show nele_jac ++ ","
   ++ show nele_hess ++ ","
   ++ "0," -- index style (start counting row/column indices at 0)
-  ++ "&" ++ identEvalf ++ ","
-  ++ "&" ++ identEvalg ++ ","
-  ++ "&" ++ identEvalGradf ++ ","
-  ++ "&" ++ identEvalJacg ++ ","
-  ++ "&" ++ identEvalHess
+  ++ "&" ++ idEvalf ++ ","
+  ++ "&" ++ idEvalg ++ ","
+  ++ "&" ++ idEvalGradf ++ ","
+  ++ "&" ++ idEvalJacg ++ ","
+  ++ "&" ++ idEvalHess
   ++ ");"
   ]
 
 freeBoundsTemplate :: [T.Text]
 freeBoundsTemplate = map (T.pack . indent)
-  [ "free(" ++ identLowerBoundsX ++ ");"
-  , "free(" ++ identUpperBoundsX ++ ");"
-  , "free(" ++ identLowerBoundsG ++ ");"
-  , "free(" ++ identUpperBoundsG ++ ");"
+  [ "free(" ++ idLowerBoundsX ++ ");"
+  , "free(" ++ idUpperBoundsX ++ ");"
+  , "free(" ++ idLowerBoundsG ++ ");"
+  , "free(" ++ idUpperBoundsG ++ ");"
   ]
 
 -- TODO un-hardcode addOptionsTemplate
@@ -133,19 +238,24 @@ addOptionsTemplate = map (T.pack . indent)
   ["AddIpoptNumOption(nlp, \"tol\", 1e-5);"
   ,"AddIpoptStrOption(nlp, \"mu_strategy\", \"adaptive\");"
   ,"AddIpoptNumOption(nlp, \"print_frequency_time\", 10);"
+  ,"AddIpoptStrOption(nlp, \"hessian_approximation\",\"limited_memory\");"
+  -- NOTE turns on lbfgs hessian approximation (hence eval_h isn't used)
+  -- see https://www.coin-or.org/Ipopt/documentation/node31.html
   ]
 
 ipoptSolveTemplate :: [T.Text]
 ipoptSolveTemplate = map (T.pack . indent)
-  [identStatus ++ " = IpoptSolve("
-  ++ identIpoptProblem ++ ","
-  ++ identVarX ++ ","
+  [idMultLowerX ++ " = ("++typeIdNumber++"*)malloc(sizeof("++typeIdNumber++")*"++idINPUTSIZE++");"
+  ,idMultUpperX ++ " = ("++typeIdNumber++"*)malloc(sizeof("++typeIdNumber++")*"++idINPUTSIZE++");"
+  ,idStatus ++ " = IpoptSolve("
+  ++ idIpoptProblem ++ ","
+  ++ idVarX ++ ","
   ++ "NULL,"
-  ++ "&" ++ identObjective ++ ","
+  ++ "&" ++ idObjective ++ ","
   ++ "NULL,"
-  ++ identMultLowerX ++ ","
-  ++ identMultUpperX ++ ","
-  ++ "NULL);"
+  ++ idMultLowerX ++ ","
+  ++ idMultUpperX ++ ","
+  ++ "(void*)"++idSharedData++");"
   ]
 
 printSolutionTemplate :: [T.Text]
@@ -153,79 +263,224 @@ printSolutionTemplate = undefined -- TODO finish printSolutionTemplate
 
 freeSolutionTemplate :: [T.Text]
 freeSolutionTemplate = map (T.pack . indent)
-  ["FreeIpoptProblem(" ++ identIpoptProblem ++ ");"
-  ,"free(" ++ identVarX ++ ");"
-  ,"free(" ++ identMultLowerX ++ ");"
-  ,"free(" ++ identMultUpperX ++ ");"
+  ["FreeIpoptProblem(" ++ idIpoptProblem ++ ");"
+  ,"free(" ++ idVarX ++ ");"
+  ,"free(" ++ idMultLowerX ++ ");"
+  ,"free(" ++ idMultUpperX ++ ");"
+  ,"free(" ++ idSharedData ++ ");"
   ]
 
---   /* set the number of variables and allocate space for the bounds */
---   n=4;
---   x_L = (Number*)malloc(sizeof(Number)*n);
---   x_U = (Number*)malloc(sizeof(Number)*n);
---   /* set the values for the variable bounds */
---   for (i=0; i<n; i++) {
---     x_L[i] = 1.0;
---     x_U[i] = 5.0;
---   }
+-- | Template for objective function
+--
+evalfTemplate :: Int -> [String] -> [T.Text]
+evalfTemplate objOffset objEvalCode =
+  let
+    idNewX = "new_x"
+    idObjVal = "obj_value"
+  in map (T.pack)
+  ["Bool eval_f("++typeIdIndex++" "++idIndex++","
+                 ++typeIdNumber++"* "++idVarX++","
+                 ++"Bool "++idNewX++","
+                 ++typeIdNumber++"* "++idObjVal++","
+                 ++"UserDataPtr user_data)"
+  ,"{"
+  ]
+  ++
+  map (T.pack . indent)
+  [typeIdSharedData ++ " " ++ idSharedData ++ " = (" ++ typeIdSharedData ++ ")user_data;"
+  ,typeIdNumber++" *ptr = "++idSharedData++"->data;"
+  ]
+  ++
+  padding
+  ++
+  map (T.pack . indent) objEvalCode
+  ++
+  padding
+  ++
+  map (T.pack . indent)
+  ["*"++idObjVal++" = ptr["++show objOffset++"];"]
+  ++
+  [(T.pack . indent) "return TRUE;"
+   ,T.pack "}"]
 
---   /* set the number of constraints and allocate space for the bounds */
---   m=2;
---   g_L = (Number*)malloc(sizeof(Number)*m);
---   g_U = (Number*)malloc(sizeof(Number)*m);
---   /* set the values of the constraint bounds */
---   g_L[0] = 25; g_U[0] = 2e19;
---   g_L[1] = 40; g_U[1] = 40;
+-- | Template for objective function
+--
+evalGradfTemplate :: [Int] -> [String] -> [T.Text]
+evalGradfTemplate gradOffsets gradFEvalCode =
+  let
+    idNewX = "new_x"
+    idObjVal = "obj_value"
+    idGradf = "grad_f"
+  in map (T.pack)
+  ["Bool eval_grad_f("++typeIdIndex++" "++idIndex++","
+                      ++typeIdNumber++"* "++idVarX++","
+                      ++typeIdNumber++"* "++idGradf++","
+                      ++"UserDataPtr user_data)"
+  ,"{"
+  ]
+  ++
+  map (T.pack . indent)
+  [typeIdSharedData ++ " " ++ idSharedData ++ " = (" ++ typeIdSharedData ++ ")user_data;"
+  ,typeIdNumber++" *ptr = "++idSharedData++"->data;"
+  ]
+  ++
+  padding
+  -- TODO finish evalGradfTemplate'
+  ++
+  [(T.pack . indent) "return TRUE;"
+   ,T.pack "}"]
 
---   /* create the IpoptProblem */
---   nlp = CreateIpoptProblem(n, x_L, x_U, m, g_L, g_U, 8, 10, 0, 
--- 			   &eval_f, &eval_g, &eval_grad_f, 
--- 			   &eval_jac_g, &eval_h);
-  
---   /* We can free the memory now - the values for the bounds have been
---      copied internally in CreateIpoptProblem */
---   free(x_L);
---   free(x_U);
---   free(g_L);
---   free(g_U);
+-- | Template for the hessian
+--
+evalhTemplate :: [T.Text]
+evalhTemplate =
+  let
+    idNewX = "new'_x"
+    idObjFact = "obj_factor"
+    idShared = "user_data"
+    idIndexM = "index_m"
+    idLambda = "lambda"
+    idHessN = "nele_hess"
+    idIdxRow = "iRow"
+    idIdxCol = "jCol"
+    idValues = "values"
+  in map (T.pack)
+  ["Bool eval_h("++typeIdIndex++" "++idIndex++","
+                 ++typeIdNumber++"* "++idVarX++","
+                 ++"Bool "++idNewX++","
+                 ++typeIdNumber++" "++idObjFact++","
+                 ++typeIdIndex++" "++idIndexM++","
+                 ++typeIdNumber++" *"++idLambda++","
+                 ++typeIdIndex++" "++idHessN++","
+                 ++typeIdIndex++" *"++idIdxRow++","
+                 ++typeIdIndex++" *"++idIdxCol++","
+                 ++typeIdNumber++" *"++idValues++","
+                 ++"UserDataPtr " ++ idShared++")"
+  ,"{"
+  ]
+  ++
+  -- TODO finish evalhTemplate
+  -- (NOTE only necessary when turning off hessian_approximation option)
+  -- ++
+  [(T.pack . indent) "return FALSE;" -- set to true if hessian_appromation is off
+  ,T.pack "}"]
 
---   /* set some options */
---   AddIpoptNumOption(nlp, "tol", 1e-9);
---   AddIpoptStrOption(nlp, "mu_strategy", "adaptive");
+-- | Template for constraint function
+--
+evalgTemplate :: [T.Text]
+evalgTemplate  =
+  let
+    idNewX = "new_x"
+    idVarG = "g"
+    idNumG = "m"
+  in map (T.pack)
+  ["Bool eval_g("++typeIdIndex++" "++idIndex++","
+                      ++typeIdNumber++"* "++idVarX++","
+                      ++"Bool "++idNewX++","
+                      ++typeIdIndex ++ " "++idNumG++","
+                      ++typeIdNumber++"* "++idVarG++","
+                      ++"UserDataPtr user_data)"
+  ,"{"
+  ]
+  ++
+  map (T.pack . indent)
+  [typeIdSharedData ++ " " ++ idSharedData ++ " = (" ++ typeIdSharedData ++ ")user_data;"
+  ,typeIdNumber++" *ptr = "++idSharedData++"->data;"
+  ]
+  ++
+  padding
+  -- TODO finish evalgTemplate
+  ++
+  [(T.pack . indent) "return TRUE;"
+   ,T.pack "}"]
 
---   /* allocate space for the initial point and set the values */
---   x = (Number*)malloc(sizeof(Number)*n);
---   x[0] = 1.0;
---   x[1] = 5.0;
---   x[2] = 5.0;
---   x[3] = 1.0;
+-- | Template for constraint function
+--
+evalJacTemplate :: [T.Text]
+evalJacTemplate  =
+  let
+    idNewX = "new_x"
+    idNumG = "m"
+    idNeleJac = "nele_jac"
+    idRowSkip = "iRow"
+    idColSkip = "iCol"
+    idValues = "values"
+  in map (T.pack)
+  ["Bool eval_jac_g("++typeIdIndex++" "++idIndex++","
+                     ++typeIdNumber++"* "++idVarX++","
+                     ++"Bool "++idNewX++","
+                     ++typeIdIndex ++ " "++idNumG++","
+                      ++typeIdIndex++" "++idNeleJac++","
+                      ++typeIdIndex++"* "++idRowSkip++","
+                      ++typeIdIndex++"* "++idColSkip++","
+                      ++typeIdNumber++"* "++idValues++","
+                      ++"UserDataPtr user_data)"
+  ,"{"
+  ]
+  ++
+  map (T.pack . indent)
+  [typeIdSharedData ++ " " ++ idSharedData ++ " = (" ++ typeIdSharedData ++ ")user_data;"
+  ,typeIdNumber++" *ptr = "++idSharedData++"->data;"
+  ]
+  ++
+  padding
+  ++
+  map (T.pack . indent)
+  ["if ("++idValues++" == NULL) {"]
+  ++
+  map (T.pack . indent . indent) ["/* return structure of jacboian */"]
+  -- TODO implement structure of jacbian in evalJacTemplate
+  ++
+  map (T.pack . indent)
+  ["}"
+  ,"else {"]
+  ++
+  map (T.pack . indent . indent) ["/* return the values of the jacbian of constraints */"]
+  --TODO implement jacbian evaluation of constraints in evalJacTemplate
+  ++
+  [(T.pack . indent) "}"]
+  ++
+  [(T.pack . indent) "return TRUE;"
+   ,T.pack "}"]
 
---   /* allocate space to store the bound multipliers at the solution */
---   mult_x_L = (Number*)malloc(sizeof(Number)*n);
---   mult_x_U = (Number*)malloc(sizeof(Number)*n);
 
---   /* solve the problem */
---   status = IpoptSolve(nlp, x, NULL, &obj, NULL, mult_x_L, mult_x_U, NULL);
+-- | Generate C Code Ipopt File
+--
+--generateProblemIpopt :: ValMaps -> Problem -> GenResult
+generateProblemIpopt :: ValMaps -> Problem -> [T.Text]
+generateProblemIpopt valMaps problem@(Problem vars objId exprMap memMap) =
+  let
+     objCodes = generateEvaluatingCodes memMap (exprMap,[objId]) -- TODO DELETE ME
+     -- ptr offset (to be used in c code) for the resulting value of the obj function
+     objOffset :: Int
+     objOffset = memOffset memMap objId LookupR
+     -- variables with thier dimensions/sizes
+     varsWithShapes :: [(String, Shape)]
+     varsWithShapes = map (\v -> (varName v, retrieveShape (nodeId v) exprMap)) vars
+     varsWithSizes :: [(String, Int)]
+     varsWithSizes = map (\(vN,vS) -> (vN,product vS)) varsWithShapes
+     -- total number of primal vars (size of idVarX, multiply this by sizeof(NumberType) when allocating)
+     totalNumVars = sum $ map snd varsWithSizes
 
---   if (status == Solve_Succeeded) {
---     printf("\n\nSolution of the primal variables, x\n");
---     for (i=0; i<n; i++)
---       printf("x[%d] = %e\n", i, x[i]); 
+     -- compute main template
+     code = mainTemplate valMaps problem
+  in code
 
---     printf("\n\nSolution of the bound multipliers, z_L and z_U\n");
---     for (i=0; i<n; i++)
---       printf("z_L[%d] = %e\n", i, mult_x_L[i]); 
---     for (i=0; i<n; i++)
---       printf("z_U[%d] = %e\n", i, mult_x_U[i]); 
+--expressionToIpopt :: Expression Scalar R -> [String] -> (Code,Problem)
+expressionToIpopt expr@(Expression exprIdx exprMap) vars =
+  let
+    setVars = Set.fromList vars
+    problem@(Problem vrs objIdx exprMap memMap) = constructProblem expr setVars
+  in generateProblemIpopt undefined problem
 
---     printf("\n\nObjective value\nf(x*) = %e\n", obj); 
---   }
- 
---   /* free allocated memory */
---   FreeIpoptProblem(nlp);
---   free(x);
---   free(mult_x_L);
---   free(mult_x_U);
+testProblem :: Problem
+testProblem = constructProblem testExpr (Set.fromList ["x","y"])
+testExpr :: Expression Scalar R
+testExpr =
+  let
+    [x, y] = map (variable2D @256 @256) ["x", "y"]
+    z = x * y
+  in sumElements (x * y)
 
---   return 0;
--- }]
+writeExprToIpopt file expr vars = TIO.writeFile file $ T.unlines $ expressionToIpopt expr vars
+testFile = "testIpopt.c"
