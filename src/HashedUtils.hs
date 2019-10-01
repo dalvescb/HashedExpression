@@ -77,6 +77,12 @@ mapBoth f (x, y) = (f x, f y)
 
 -- |
 --
+mapSecond :: (b -> c) -> [(a, b)] -> [(a, c)]
+mapSecond _ [] = []
+mapSecond f ((x, y):rest) = (x, f y) : mapSecond f rest
+
+-- |
+--
 measureTime :: IO a -> IO ()
 measureTime action = do
     beforeTime <- getCurrentTime
@@ -191,11 +197,25 @@ aConst shape val = (IM.fromList [(h, node)], h)
 
 -- |
 --
+data FileType
+    = TXT
+    | HDF5
+    deriving (Eq, Show, Ord)
+
 data Val
     = VScalar Double
     | V1D (Array Int Double)
     | V2D (Array (Int, Int) Double)
     | V3D (Array (Int, Int, Int) Double)
+    | V1DFile
+          FileType -- C support hdf5, we want npy too but haven't found any npy reader library for C
+          FilePath -- file path to the data file from your solver
+    | V2DFile
+          FileType -- C support hdf5, we want npy too but haven't found any npy reader library for C
+          FilePath -- file path to the data file from your solver
+    | V3DFile
+          FileType -- C support hdf5, we want npy too but haven't found any npy reader library for C
+          FilePath -- file path to the data file from your solver
     deriving (Eq, Show, Ord)
 
 type ValMaps = Map String Val
@@ -209,6 +229,7 @@ valElems val =
         V1D vs -> elems vs
         V2D vs -> elems vs
         V3D vs -> elems vs
+        _ -> []
 
 -- | Prelude version of * and +
 --

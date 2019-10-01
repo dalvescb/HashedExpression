@@ -6,5 +6,8 @@ dist-newstyle
 *.iml
 out/
 *.txt
+*.h5
 
 *.dat
+*.npz
+*.npy

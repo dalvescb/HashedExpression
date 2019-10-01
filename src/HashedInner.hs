@@ -375,6 +375,8 @@ combineChildrenDiffs operandOrder contextMp n childrenDiffs
             Rotate amount _ -> combine (unary (Rotate amount))
             ReFT _ -> combine (unary ReFT)
             ImFT _ -> combine (unary ImFT)
+            TwiceReFT _ -> combine (unary TwiceReFT)
+            TwiceImFT _ -> combine (unary TwiceImFT)
   where
     (oldShape, oldNode) = retrieveInternal n contextMp
     oldChildren = nodeArgs oldNode
@@ -449,8 +451,8 @@ expressionVarNodes (Expression n mp) = mapMaybe collect ns
         | DVar varName <- retrieveNode nId mp = Just (varName, nId)
         | otherwise = Nothing
 
-varsAndShape :: ExpressionMap -> [(String, Int)]
-varsAndShape mp = mapMaybe collect . IM.keys $ mp
+varNodesWithId :: ExpressionMap -> [(String, Int)]
+varNodesWithId mp = mapMaybe collect . IM.keys $ mp
   where
     collect nId
         | Var varName <- retrieveNode nId mp = Just (varName, nId)
