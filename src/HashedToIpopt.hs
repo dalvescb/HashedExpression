@@ -53,7 +53,11 @@ import Prelude hiding
     , tan
     , tanh
     )
-  
+
+-- TODO remove me
+import Debug.Trace
+debug = (flip  trace)
+
 -- | Variable and Type Identifiers
 --
 idNumVars = "n"
@@ -91,13 +95,18 @@ padding = map T.pack ["",""]
 -- | Templates
 --
 mainTemplate :: ValMaps -> Problem -> [T.Text]
-mainTemplate valMaps (Problem vars objId exprMap memMap) =
+mainTemplate valMaps (Problem vars objId exprMap memMap constraint) =
   let
      -- ptr offset (to be used in c code) for the resulting value of the obj function
      objOffset :: Int
      objOffset = memOffset memMap objId LookupR
      -- code for evaluating objective function
      objEvalCode = generateEvaluatingCodes memMap (exprMap,[objId])
+     -- ptr offset (to be used in c code) for each partial derivative and their sizes
+     objDiffOffsetsSize = map (\i -> (memOffset memMap i LookupR, product $ retrieveShape i exprMap)) $
+                          map partialDerivativeId vars
+     -- code for evaluating ALL partial derivatives of objective function
+     objDiffEvalCode = generateEvaluatingCodes memMap (exprMap,map partialDerivativeId vars)
      -- variables with thier dimensions/sizes
      varsWithShapes :: [(String, Shape)]
      varsWithShapes = map (\v -> (varName v, retrieveShape (nodeId v) exprMap)) vars
@@ -118,7 +127,7 @@ mainTemplate valMaps (Problem vars objId exprMap memMap) =
   ++ padding
   ++ evalfTemplate objOffset objEvalCode
   ++ padding
-  ++ evalGradfTemplate undefined undefined -- TODO provide evalGradfTemplate with inputs
+  ++ evalGradfTemplate objDiffOffsetsSize objDiffEvalCode
   ++ padding
   ++ evalhTemplate
   ++ padding
@@ -305,12 +314,15 @@ evalfTemplate objOffset objEvalCode =
 
 -- | Template for objective function
 --
-evalGradfTemplate :: [Int] -> [String] -> [T.Text]
-evalGradfTemplate gradOffsets gradFEvalCode =
+evalGradfTemplate :: [(Int,Int)] -> [String] -> [T.Text]
+evalGradfTemplate objDiffOffsetsSizes objDiffEvalCode =
   let
-    idNewX = "new_x"
-    idObjVal = "obj_value"
     idGradf = "grad_f"
+    idPtr   = "ptr"
+    gradAssignsLoops = scoped $ ["int tmp = 0;"] ++ concatMap gradAssignLoop objDiffOffsetsSizes
+    gradAssignLoop (offset,sz) = forRange "i" sz [gradAssignCode "tmp" ("i + "++show offset)
+                                                 ,"tmp++;"]
+    gradAssignCode gradfIdx ptrIdx = idGradf++"["++gradfIdx++"]" <<- idPtr++"["++ptrIdx++"]"
   in map (T.pack)
   ["Bool eval_grad_f("++typeIdIndex++" "++idIndex++","
                       ++typeIdNumber++"* "++idVarX++","
@@ -325,7 +337,16 @@ evalGradfTemplate gradOffsets gradFEvalCode =
   ]
   ++
   padding
-  -- TODO finish evalGradfTemplate'
+  ++
+  map (T.pack . indent) objDiffEvalCode
+  ++
+  padding
+  ++
+  map (T.pack . indent )["/* populize grad_f here */"]-- TODO finish evalGradfTemplate'
+  ++
+  map (T.pack . indent) gradAssignsLoops
+  ++
+  padding
   ++
   [(T.pack . indent) "return TRUE;"
    ,T.pack "}"]
@@ -362,7 +383,7 @@ evalhTemplate =
   -- TODO finish evalhTemplate
   -- (NOTE only necessary when turning off hessian_approximation option)
   -- ++
-  [(T.pack . indent) "return FALSE;" -- set to true if hessian_appromation is off
+  [(T.pack . indent) "return FALSE; /* AddIpoptStrOption hessian_approximation set */" -- set to true if hessian_appromation is off
   ,T.pack "}"]
 
 -- | Template for constraint function
@@ -448,7 +469,7 @@ evalJacTemplate  =
 --
 --generateProblemIpopt :: ValMaps -> Problem -> GenResult
 generateProblemIpopt :: ValMaps -> Problem -> [T.Text]
-generateProblemIpopt valMaps problem@(Problem vars objId exprMap memMap) =
+generateProblemIpopt valMaps problem@(Problem vars objId exprMap memMap _) =
   let
      objCodes = generateEvaluatingCodes memMap (exprMap,[objId]) -- TODO DELETE ME
      -- ptr offset (to be used in c code) for the resulting value of the obj function
@@ -464,23 +485,25 @@ generateProblemIpopt valMaps problem@(Problem vars objId exprMap memMap) =
 
      -- compute main template
      code = mainTemplate valMaps problem
-  in code
+  in code `debug` (show vars)
 
 --expressionToIpopt :: Expression Scalar R -> [String] -> (Code,Problem)
 expressionToIpopt expr@(Expression exprIdx exprMap) vars =
   let
     setVars = Set.fromList vars
-    problem@(Problem vrs objIdx exprMap memMap) = constructProblem expr setVars
+    problem@(Problem vrs objIdx exprMap memMap _) = constructProblem expr vars undefined
   in generateProblemIpopt undefined problem
 
 testProblem :: Problem
-testProblem = constructProblem testExpr (Set.fromList ["x","y"])
+testProblem = constructProblem testExpr (["x","y"]) undefined
 testExpr :: Expression Scalar R
 testExpr =
   let
     [x, y] = map (variable2D @256 @256) ["x", "y"]
     z = x * y
-  in sumElements (x * y)
+  in sumElements z
 
 writeExprToIpopt file expr vars = TIO.writeFile file $ T.unlines $ expressionToIpopt expr vars
 testFile = "testIpopt.c"
+
+runTest = writeExprToIpopt testFile testExpr ["x","y"]
