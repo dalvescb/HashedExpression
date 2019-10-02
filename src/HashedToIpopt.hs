@@ -95,7 +95,7 @@ padding = map T.pack ["",""]
 -- | Templates
 --
 mainTemplate :: ValMaps -> Problem -> [T.Text]
-mainTemplate valMaps (Problem vars objId exprMap memMap constraint) =
+mainTemplate valMaps (Problem vars objId exprMap memMap mBoxConstraints mScalarConstraints) =
   let
      -- ptr offset (to be used in c code) for the resulting value of the obj function
      objOffset :: Int
@@ -469,7 +469,7 @@ evalJacTemplate  =
 --
 --generateProblemIpopt :: ValMaps -> Problem -> GenResult
 generateProblemIpopt :: ValMaps -> Problem -> [T.Text]
-generateProblemIpopt valMaps problem@(Problem vars objId exprMap memMap _) =
+generateProblemIpopt valMaps problem@(Problem vars objId exprMap memMap mBoxConstraints mScalarConstraints) =
   let
      objCodes = generateEvaluatingCodes memMap (exprMap,[objId]) -- TODO DELETE ME
      -- ptr offset (to be used in c code) for the resulting value of the obj function
@@ -488,22 +488,33 @@ generateProblemIpopt valMaps problem@(Problem vars objId exprMap memMap _) =
   in code `debug` (show vars)
 
 --expressionToIpopt :: Expression Scalar R -> [String] -> (Code,Problem)
-expressionToIpopt expr@(Expression exprIdx exprMap) vars =
+expressionToIpopt (expr@(Expression exprIdx exprMap),constraints) vars =
   let
     setVars = Set.fromList vars
-    problem@(Problem vrs objIdx exprMap memMap _) = constructProblem expr vars undefined
+    problem@(Problem vrs objIdx exprMap memMap mBoxConstraints mScalarConstraints) =
+      case constructProblem expr vars undefined of
+        ProblemValid prob -> prob
+        ProblemInvalid msg -> error $ "constructProblem Invalid: "++msg
   in generateProblemIpopt undefined problem
 
 testProblem :: Problem
-testProblem = constructProblem testExpr (["x","y"]) undefined
-testExpr :: Expression Scalar R
-testExpr =
+testProblem =
+  let
+    (testExpr,constraints) = testExprAndConstraints
+  in case constructProblem testExpr (["x","y"]) constraints of
+       ProblemValid prob -> prob
+       ProblemInvalid msg -> error $ "constructProblem Invalid: "++msg
+
+testExprAndConstraints :: (Expression Scalar R,Constraint)
+testExprAndConstraints =
   let
     [x, y] = map (variable2D @256 @256) ["x", "y"]
     z = x * y
-  in sumElements z
+    xCon = x .<= VScalar 5
+    yCon = y .<= VScalar 5
+  in (sumElements z,IPOPTConstraint [xCon,yCon])
 
 writeExprToIpopt file expr vars = TIO.writeFile file $ T.unlines $ expressionToIpopt expr vars
 testFile = "testIpopt.c"
 
-runTest = writeExprToIpopt testFile testExpr ["x","y"]
+runTest = writeExprToIpopt testFile testExprAndConstraints ["x","y"]
