@@ -27,6 +27,8 @@ import qualified Data.ByteString.Char8 as C
 import Data.Maybe
 import qualified Data.Set as Set
 
+import qualified Data.Array as Array
+
 import Prelude hiding
     ( (*)
     , (+)
@@ -55,8 +57,10 @@ import Prelude hiding
     )
 
 -- TODO remove me
+import GHC.Stack
 import Debug.Trace
 debug = (flip  trace)
+
 
 -- | Variable and Type Identifiers
 --
@@ -119,6 +123,13 @@ mainTemplate valMaps (Problem vars objId exprMap memMap mBoxConstraints mScalarC
      -- size of jacbian and hessian
      nele_jac = 0 -- TODO define nele_jac
      nele_hess = 0  -- TODO is nele_hess correct?
+     -- collect partials scalar constraints
+     partialScalarConsIDs = case mScalarConstraints of
+                              Just xs -> concatMap constraintPartialDerivatives xs
+                              Nothing -> []
+     paritalScalarOffsetsSizes = map (\i -> (memOffset memMap i LookupR,
+                                             product $ retrieveShape i exprMap)) $ partialScalarConsIDs
+     partialScalarConsEvalCode = generateEvaluatingCodes memMap (exprMap,partialScalarConsIDs)
   in
   includesTemplate
   ++ padding
@@ -133,7 +144,7 @@ mainTemplate valMaps (Problem vars objId exprMap memMap mBoxConstraints mScalarC
   ++ padding
   ++ evalgTemplate
   ++ padding
-  ++ evalJacTemplate
+  ++ evalJacTemplate paritalScalarOffsetsSizes partialScalarConsEvalCode
   ++ padding
   ++ map T.pack
      ["int main()"
@@ -417,8 +428,8 @@ evalgTemplate  =
 
 -- | Template for constraint function
 --
-evalJacTemplate :: [T.Text]
-evalJacTemplate  =
+evalJacTemplate :: [(Int,Int)] -> Code -> [T.Text]
+evalJacTemplate paritalScalarOffsetsSizes partialScalarConsEvalCode =
   let
     idNewX = "new_x"
     idNumG = "m"
@@ -426,6 +437,11 @@ evalJacTemplate  =
     idRowSkip = "iRow"
     idColSkip = "iCol"
     idValues = "values"
+    idPtr = "ptr"
+    valuesAssignsLoops = scoped $ ["int tmp = 0;"] ++ concatMap valuesAssignLoop paritalScalarOffsetsSizes
+    valuesAssignLoop (offset,sz) = forRange "i" sz [valuesAssignCode "tmp" ("i + "++show offset)
+                                                 ,"tmp++;"]
+    valuesAssignCode gradfIdx ptrIdx = idValues++"["++gradfIdx++"]" <<- idPtr++"["++ptrIdx++"]"
   in map (T.pack)
   ["Bool eval_jac_g("++typeIdIndex++" "++idIndex++","
                      ++typeIdNumber++"* "++idVarX++","
@@ -458,6 +474,10 @@ evalJacTemplate  =
   ++
   map (T.pack . indent . indent) ["/* return the values of the jacbian of constraints */"]
   --TODO implement jacbian evaluation of constraints in evalJacTemplate
+  ++
+  map (T.pack . indent) partialScalarConsEvalCode
+  ++
+  map (T.pack . indent) valuesAssignsLoops
   ++
   [(T.pack . indent) "}"]
   ++
@@ -492,7 +512,7 @@ expressionToIpopt (expr@(Expression exprIdx exprMap),constraints) vars =
   let
     setVars = Set.fromList vars
     problem@(Problem vrs objIdx exprMap memMap mBoxConstraints mScalarConstraints) =
-      case constructProblem expr vars undefined of
+      case constructProblem expr vars constraints of
         ProblemValid prob -> prob
         ProblemInvalid msg -> error $ "constructProblem Invalid: "++msg
   in generateProblemIpopt undefined problem
@@ -509,12 +529,21 @@ testExprAndConstraints :: (Expression Scalar R,Constraint)
 testExprAndConstraints =
   let
     [x, y] = map (variable2D @256 @256) ["x", "y"]
-    z = x * y
-    xCon = x .<= VScalar 5
-    yCon = y .<= VScalar 5
-  in (sumElements z,IPOPTConstraint [xCon,yCon])
+    z = x * x + y
+    xCon = x .<= (V2D $ Array.listArray ((0,0),(255,255)) $ repeat 5)
+    yCon = y .<= (V2D $ Array.listArray ((0,0),(255,255)) $ repeat 5)
+    sCon = (const 2) * (x <.> y) .>= VScalar 1
+  in (sumElements z,IPOPTConstraint [xCon,yCon,sCon])
 
 writeExprToIpopt file expr vars = TIO.writeFile file $ T.unlines $ expressionToIpopt expr vars
 testFile = "testIpopt.c"
 
 runTest = writeExprToIpopt testFile testExprAndConstraints ["x","y"]
+
+x :: Maybe Int
+x = Nothing
+
+pullX :: HasCallStack => Int
+pullX = fromJust x
+
+something = error "Something happend"
