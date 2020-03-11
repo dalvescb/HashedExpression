@@ -18,6 +18,27 @@ packages:
       sha256: d291028785ad39f8d05cde91594f6b313e35ff76af66c0452ab599b1f1f59e5f
   original:
     hackage: string-quote-0.0.1
+- completed:
+    hackage: llvm-hs-8.0.0@sha256:1c4871a2f767dbdc6a2a2650e1261c804f0239b0f4e09004518891f1e52600d7,9008
+    pantry-tree:
+      size: 13599
+      sha256: 8e6b2d6fb08d7b0e6d31f80435d6170801b80950fb242fb392b616d2e474a95f
+  original:
+    hackage: llvm-hs-8.0.0
+- completed:
+    hackage: llvm-hs-pure-8.0.0@sha256:8ccfdbbf0a5678f56d88f3e623da8e0e2937439988e06021cfd6874adf29226c,2945
+    pantry-tree:
+      size: 2601
+      sha256: 2f59a247f6b9571627575e4ac5ea8a33aac6f1eb5ee8537f9e26fd7a4cbf1e28
+  original:
+    hackage: llvm-hs-pure-8.0.0
+- completed:
+    hackage: llvm-hs-pretty-0.9.0.0@sha256:b7a5de5f3dd97893d19d2b47af1e4dd8d075a5cf57062180a912d1f3ef1def60,1671
+    pantry-tree:
+      size: 4685
+      sha256: 8cf6d628bb4f962575ad0993bb1010e9989cea00b325b8a45ac35ac201061386
+  original:
+    hackage: llvm-hs-pretty-0.9.0.0
 snapshots:
 - completed:
     size: 524789

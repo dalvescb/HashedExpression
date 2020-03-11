@@ -33,6 +33,11 @@ dependencies:
   - easyplot
   - string-quote
   - mtl
+  - llvm-hs
+  - llvm-hs-pure
+  #- llvm-hs-pretty
+
+
 
 extra-source-files:
   - lang/*.hs
