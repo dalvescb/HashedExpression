@@ -1,6 +1,6 @@
 {-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE OverloadedStrings #-}
---Example for adding two integers
+
 module Main where
 
 import Data.Text.Lazy.IO as T

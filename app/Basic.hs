@@ -47,6 +47,7 @@ toLLVM :: AST.Module -> IO ()
 toLLVM mod = withContext $ \ctx -> do
   llvm <- withModuleFromAST ctx mod moduleLLVMAssembly
   BS.putStrLn llvm
+  BS.writeFile "LLVMFiles/llvmFile.ll" $ llvm 
 
 
 basic :: IO ()
