@@ -35,6 +35,7 @@ dependencies:
   - mtl
   - llvm-hs
   - llvm-hs-pure
+  - parsec
   #- llvm-hs-pretty
 
 
@@ -78,6 +79,9 @@ library:
   source-dirs:
     - src
     - embed
+    - LLVMFiles
+    - LLVMFiles/CodeGen
+    - my-demo
 
 
 

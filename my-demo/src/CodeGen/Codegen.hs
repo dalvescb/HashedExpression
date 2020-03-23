@@ -1,7 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-
-module Codegen where
+module CodeGen.Codegen where
 
 import Data.Word
 import Data.String
@@ -16,15 +15,14 @@ import Control.Applicative
 import LLVM.AST
 import LLVM.AST.Global
 import qualified LLVM.AST as AST
---import LLVM.AST.Instruction
---import qualified LLVM.AST.Instruction as I
+
 import qualified LLVM.AST.Linkage as L
 import qualified LLVM.AST.Constant as C
 import qualified LLVM.AST.Attribute as A
 import qualified LLVM.AST.CallingConvention as CC
 import qualified LLVM.AST.FloatingPointPredicate as FP
 
---import Syntax
+
 -------------------------------------------------------------------------------
 -- Module Level
 -------------------------------------------------------------------------------
@@ -35,7 +33,7 @@ newtype LLVM a = LLVM (State AST.Module a)
 runLLVM :: AST.Module -> LLVM a -> AST.Module
 runLLVM mod (LLVM m) = execState m mod
 
-emptyModule :: ShortByteString -> AST.Module
+emptyModule :: String -> AST.Module
 emptyModule label = defaultModule { moduleName = label }
 
 addDefn :: Definition -> LLVM ()
@@ -239,7 +237,7 @@ fmul :: Operand -> Operand -> Codegen Operand
 fmul a b = instr $ FMul noFastMathFlags a b []
 
 fdiv :: Operand -> Operand -> Codegen Operand
-fdiv a b = instr $ FDiv noFastMathFlags a b []
+fdiv a b = instr $ FDiv  noFastMathFlags a b []
 
 fcmp :: FP.FloatingPointPredicate -> Operand -> Operand -> Codegen Operand
 fcmp cond a b = instr $ FCmp cond a b []

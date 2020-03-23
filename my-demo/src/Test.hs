@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Basic where
+module Test where
 
 import LLVM.AST
 import qualified LLVM.AST as AST
@@ -258,7 +258,7 @@ module_ = defaultModule
                         , defAShr
                         , defAdd
                         , defOr
-                        , defXor
+                        ,defXor
                         ]
   }
 
@@ -266,8 +266,7 @@ module_ = defaultModule
 toLLVM :: AST.Module -> IO ()
 toLLVM mod = withContext $ \ctx -> do
   llvm <- withModuleFromAST ctx mod moduleLLVMAssembly
-  --BS.putStrLn llvm
-  BS.writeFile "llvmTest.ll" llvm 
+  BS.putStrLn llvm
 
 
 basic :: IO ()

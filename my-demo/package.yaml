@@ -1,0 +1,55 @@
+name:                my-new-demo
+version:             0.1.0.0
+github:              "githubuser/my-new-demo"
+license:             BSD3
+author:              "Author name here"
+maintainer:          "example@example.com"
+copyright:           "2020 Author name here"
+
+extra-source-files:
+- README.md
+- ChangeLog.md
+
+# Metadata used when publishing your package
+# synopsis:            Short description of your package
+# category:            Web
+
+# To avoid duplicated efforts in documentation and dealing with the
+# complications of embedding Haddock markup inside cabal files, it is
+# common to point users to the README.md file.
+description:         Please see the README on GitHub at <https://github.com/githubuser/my-new-demo#readme>
+
+dependencies:
+- base >= 4.7 && < 5
+- llvm-hs-pure
+- llvm-hs
+- text
+- containers
+- bytestring
+- deepseq
+- mtl
+
+library:
+  source-dirs: src
+
+executables:
+  my-new-demo-exe:
+    main:                Main.hs
+    source-dirs:         app
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - my-new-demo
+
+tests:
+  my-new-demo-test:
+    main:                Spec.hs
+    source-dirs:         test
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - my-new-demo
