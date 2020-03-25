@@ -1,5 +1,13 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveAnyClass #-}
 
 module Codegen where
 
@@ -23,6 +31,7 @@ import qualified LLVM.AST.Constant as C
 import qualified LLVM.AST.Attribute as A
 import qualified LLVM.AST.CallingConvention as CC
 import qualified LLVM.AST.FloatingPointPredicate as FP
+--import Data.ByteString.Short.Internal (ShortByteString)
 
 --import Syntax
 -------------------------------------------------------------------------------
