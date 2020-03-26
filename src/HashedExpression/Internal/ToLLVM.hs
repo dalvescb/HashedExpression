@@ -3,6 +3,7 @@ module HashedExpression.Internal.ToLLVM
       , LLVMMemMapEntry
       , Code
       , makeLLVMMemMap
+      , mkModule
   ) where 
 
 import Data.Array
@@ -32,23 +33,23 @@ import HashedExpression.Internal.Inner
 import HashedExpression.Internal.Node
 import HashedExpression.Internal.Utils
 import HashedExpression.Prettify (prettifyDebug)
-import LLVM.AST
+import LLVM.AST hiding (Mul,FMul)
 import qualified LLVM.AST as AST
 import LLVM.AST.Global
 import LLVM.Context
 import LLVM.Module
-
+import qualified LLVM.AST.Constant as C
 import Control.Monad.Except
 import qualified Data.ByteString.Char8 as BS
-
+import LLVM.AST.Float
 --offset/key into the allocated memory
-offsetType :: Type
-offsetType = IntegerType 64
+offsetType :: AST.Type
+offsetType = AST.IntegerType 64
 
 --all elements used here are of double type
-elementType :: Type
+elemType :: AST.Type
 --elementType = Double
-elementType = FloatingPointType DoubleFP
+elemType = AST.FloatingPointType AST.DoubleFP
 
 type LLVMMemMapEntry = (Int, EntryType, Shape)
 
@@ -57,7 +58,7 @@ data EntryType
     | EntryC
     deriving (Show, Eq, Ord)
 
-type Code = AST.Module
+type Code = [Named AST.Instruction]
 
 data LLVMMemMap =
     LLVMMemMap
@@ -86,63 +87,63 @@ mmUpdate exprMap (memMapSoFar, sizeSoFar) nId =
         newMemMap = IM.insert nId (sizeSoFar, mmShape, shape) memMapSoFar
      in (newMemMap, sizeSoFar + nodeSz)
 
-
+-- | create a temporary variable out of the node id
+mkTemp :: Int -> AST.Name
+mkTemp n = mkName ("t" ++ show n)
 
 -- | Generate evaluation code (usually an expression and its partial derivatives) given an ExpressionMap and indices of nodes to be computed
 --
-generateEvaluatingCodes :: MemMap -> (ExpressionMap, [Int]) -> Code
+generateEvaluatingCodes :: LLVMMemMap -> (ExpressionMap, [Int]) -> AST.Definition--Module
 generateEvaluatingCodes memMap (mp, rootIds) =
     GlobalDefinition functionDefaults
        { name = Name "func"
        , parameters =
-           ( [ Parameter int (Name "a") []
-             , Parameter int (Name "b") [] ]
+           ( [ Parameter elemType (Name "a") []
+             , Parameter elemType (Name "b") [] ]
            , False )
-       , returnType = int
+       , returnType = elemType 
        , basicBlocks = [body]
        }
        where
          body = BasicBlock
              (Name "entry")
-             map genCode $ topologicalSortManyRoots (mp, rootIds)
-             (Do $ Ret (Just (LocalReference int (Name "result"))) [])
+             (concatMap genCode $ topologicalSortManyRoots (mp, rootIds))
+             (Do $ Ret (Just (LocalReference elemType (head $ map mkTemp rootIds))) [])
          getShape :: Int -> Shape
          getShape nId = retrieveShape nId mp
     -- |
     --
-         addressOf :: Int -> String
-         addressOf nId = "(ptr + " ++ show (memOffset memMap nId LookupR) ++ ")"
+      --   addressOf :: Int -> String
+        -- addressOf nId = "(ptr + " ++ show (memOffset memMap nId LookupR) ++ ")"
     -- for with only body
-         for :: String -> Int -> Code -> Code
-         for iter nId scopeCodes = forWith iter (getShape nId) ([], scopeCodes, [])
+         --for :: String -> Int -> Code -> Code
+         --for iter nId scopeCodes = forWith iter (getShape nId) ([], scopeCodes, [])
     -- Real node
-         at :: Int -> String -> String
-         at = accessPtr memMap LookupR mp
+         --at :: Int -> String -> String
+         --at id offset = accessPtr memMap LookupR mp id offset
+         -- for scalar
+         --name nId = "t" ++ ()
     -- Real part of complex node
-         reAt :: Int -> String -> String
-         reAt = accessPtr memMap LookupReC mp
+         --reAt :: Int -> String -> String
+         --reAt = accessPtr memMap LookupReC mp
     -- Real part of complex node
-         imAt :: Int -> String -> String
-         imAt = accessPtr memMap LookupImC mp
-         infix 9 `at`, `imAt`, `reAt`
+         --imAt :: Int -> String -> String
+         --imAt = accessPtr memMap LookupImC mp
+
+         --infix 9 `at`, `imAt`, `reAt`
          genCode :: Int -> Code -- From node id to codes
          genCode n =
-          let (shape, node) = retrieveInternal n mp
+          let (shape, op) = retrieveInternal n mp
               elementType nId = retrieveElementType nId mp
-          in case node of
+          in case op of
                 Var _ -> [ ]
                 DVar _ -> error "DVar should not be here"
-                Const val -> for i n [n `at` i <<- show val]
-                Sum _ args -> let arName = map (`at` i) args 
-                              [ Name nId := Add False  -- no signed wrap
-                                                False  -- no unsigned wrap
-                                                (LocalReference int (Name argName!!0))
-                                                (LocalReference int (Name argName!!1))
+                Const val -> [ ] --error "for i n [n `at` i <<- show val]"
+                Sum _ args -> let argName = map mkTemp args
+                              in   [ (mkTemp n) AST.:= AST.FAdd AST.noFastMathFlags
+                                                (AST.LocalReference elemType (argName!!0))
+                                                (AST.LocalReference elemType (argName!!1))
                                                 []]
-                   -- | elementType n == R ->
-                     --   let sumAt i = intercalate " + " $ map (`at` i) args
-                       --  in LLVM.AST.FAdd for i n [n `at` i <<- sumAt i
-                       --  ]
                          -- need to generate an address calculation and load for each input
                          -- each input also needs a temporary variable to load into (can use nodeIds because they are unique)
                          --   for inputs you need both the "node" and the "args" one by one
@@ -151,28 +152,13 @@ generateEvaluatingCodes memMap (mp, rootIds) =
                          -- (count args - 1) Fadds
                          -- one address calculation and one store for the output
                 Mul _ args -> error "Mul not implemented"
-                    -- | elementType n == R ->
-                      --  let prodAt i = intercalate " * " $ map (`at` i) args
-                        -- in for i n [n `at` i <<- prodAt i]
                 Power x arg  -> error "Power not implemented"
-                    -- | elementType n == R ->
-                       -- let powerAt i =
-                         --       "pow(" ++ arg `at` i ++ "," ++ show x ++ ")"
-                        -- in for i n [n `at` i <<- powerAt i]
-                Neg _ arg -> [ Name nId := Add False  -- no signed wrap
-                                           False  -- no unsigned wrap
-                                           (LocalReference int (ConstantOperand (C.Int 32 0)))
-                                           (LocalReference int (Name arg))
+                Neg _ arg -> let argName = mkTemp arg
+                             in [ (mkTemp n) := AST.FSub AST.noFastMathFlags
+                                                        (AST.ConstantOperand (C.Float $ LLVM.AST.Float.Double 0))
+                                                        (AST.LocalReference elemType (argName))
                                            []]
-                    -- | elementType n == R ->
-                    --    let negAt i = "-" ++ arg `at` i
-                      --   in for i n [n `at` i <<- negAt i]
                          -- need to generate address, load, negate, address and store (and two temporary)
-                   -- | elementType n == C ->
-                     --   let negReAt i = "-" ++ (arg `reAt` i)
-                       --     negImAt i = "-" ++ (arg `imAt` i)
-                         --in for i n [n `reAt` i <<- negReAt i] ++
-                           -- for i n [n `imAt` i <<- negImAt in ]
                 Scale _ scalar arg -> error "Scale should not be here"
                 -- MARK: only apply to R
                 Div arg1 arg2  -> error "Div not implemented"
@@ -202,3 +188,15 @@ generateEvaluatingCodes memMap (mp, rootIds) =
                 Rotate [amount] arg -> error "Rotate 1D should not be here"
                 Rotate [amount1, amount2] arg -> error "Rotate 2D should not be here"
                 Rotate [amount1, amount2, amount3] arg -> error "Rotate 3D should not be here"
+                
+mkModule :: Expression d et -> AST.Module
+mkModule exp = 
+  let 
+    Expression topLevel exprMap  = exp 
+    llvmMemMap = makeLLVMMemMap exprMap
+  in 
+    defaultModule
+    { moduleName = "basic"
+    , moduleDefinitions = [ generateEvaluatingCodes llvmMemMap (exprMap, [topLevel]) ]
+    }
+  
