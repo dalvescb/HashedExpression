@@ -10,7 +10,7 @@ import Data.Array
 import Data.Graph (buildG, topSort)
 import Data.IntMap.Strict (IntMap)
 import qualified Data.IntMap.Strict as IM
-import Data.List (foldl', intercalate, intersperse, tails)
+import Data.List (map, foldl', intercalate, intersperse, tails)
 import Data.List.HT (splitLast)
 import qualified Data.Map.Strict as Map
 import Data.Maybe (catMaybes, mapMaybe)
@@ -95,7 +95,41 @@ mmUpdate exprMap (memMapSoFar, sizeSoFar) nId =
 -- | create a temporary variable out of the node id
 -- mkTemp :: Int -> AST.Name
 mkTemp n = mkName ("t" ++ show n)
+mkTemp2 n m = mkName ("s"++show n++"_"++show m)
 
+arithFun :: (AST.FastMathFlags -> AST.Operand -> AST.Operand -> AST.InstructionMetadata -> AST.Instruction ) -> Int -> [Int] -> [Named AST.Instruction]
+arithFun instr n [] = [ mkTemp n AST.:=  instr AST.noFastMathFlags
+                           (AST.ConstantOperand (C.Float $ LLVM.AST.Float.Double 0)) -- Check me - Type of var and const
+                           (AST.ConstantOperand $ C.Float $ LLVM.AST.Float.Double 0)
+                           []]
+arithFun instr n (x:[]) = let argName = mkTemp x
+                    in[ mkTemp n AST.:=  instr AST.noFastMathFlags
+                                 (AST.ConstantOperand (C.Float $ LLVM.AST.Float.Double 0)) -- Check me - Type of var and const
+                                 (AST.LocalReference elemType (argName))
+                                 []]
+arithFun instr n (x:y:[]) = let argName1 = mkTemp x
+                                argName2 = mkTemp y
+                            in[ mkTemp n AST.:=  instr AST.noFastMathFlags
+                                 (AST.LocalReference elemType (argName1)) -- Check me - Type of var and const
+                                 (AST.LocalReference elemType (argName2))
+                                 []]
+arithFun instr n (x:y:xs) =
+  let
+    helper (w1:w2:[]) =[ mkTemp2 w1 w2 AST.:=  instr AST.noFastMathFlags
+                                  (AST.LocalReference elemType (mkTemp w1)) -- Check me - Type of var and const
+                                  (AST.LocalReference elemType (mkTemp w2))
+                                  []]
+    helper (w1:w2:w3:ws) = helper (w2:ws)
+                        ++ [ mkTemp2 w1 w2 AST.:=  instr AST.noFastMathFlags
+                                                             (AST.LocalReference elemType (mkTemp w1)) -- Check me - Type of var and const
+                                                             (AST.LocalReference elemType (mkTemp2 w2 w3))
+                                                             []]
+  in
+    helper (y:xs)
+    ++ ( [ mkTemp n AST.:= instr AST.noFastMathFlags
+                                          (AST.LocalReference elemType (mkTemp2 n y)) -- Check me - Type of var and const
+                                          (AST.LocalReference elemType (mkTemp x))
+                                          []] )
 -- | Generate evaluation code (usually an expression and its partial derivatives) given an ExpressionMap and indices of nodes to be computed
 --
 generateEvaluatingCodes :: LLVMMemMap -> (ExpressionMap, [Int]) -> AST.Definition--Module
@@ -133,11 +167,13 @@ generateEvaluatingCodes memMap (mp, rootIds) =
                                                     (AST.ConstantOperand (C.Float $ LLVM.AST.Float.Double 0)) -- Check me - Type of var and const
                                                     (AST.ConstantOperand $ C.Float $ LLVM.AST.Float.Double val) 
                                                     []] --error "for i n [n `at` i <<- show val]"
-                Sum _ args -> let argName = map mkTemp args
+                Sum _ args -> arithFun AST.FAdd n args
+
+                {-let argName = map mkTemp args
                               in   [ mkTemp n AST.:= AST.FAdd AST.noFastMathFlags
                                                 (AST.LocalReference elemType (argName!!0))
                                                 (AST.LocalReference elemType (argName!!1))
-                                                []]
+                                                []] -}
                          -- need to generate an address calculation and load for each input
                          -- each input also needs a temporary variable to load into (can use nodeIds because they are unique)
                          --   for inputs you need both the "node" and the "args" one by one
@@ -145,30 +181,21 @@ generateEvaluatingCodes memMap (mp, rootIds) =
                          --   for output you can just use node
                          -- (count args - 1) Fadds
                          -- one address calculation and one store for the output
-                Mul _ args -> let argName = map mkTemp args
+                Mul _ args -> arithFun AST.FMul n args
+                {-let argName = map mkTemp args
                               in   [ mkTemp n AST.:= AST.FMul AST.noFastMathFlags
                                                        (AST.LocalReference elemType (argName!!0))
                                                        (AST.LocalReference elemType (argName!!1))
-                                                       []]
+                                                       []]-}
                                                                               --error "Mul not implemented"
-                Power x arg  -> let argName = mkTemp arg
-                                in  [] {-- [ (mkTemp n) AST.:= AST.Call Nothing
-                                                         LLVM.AST.CallingConvention.X86_StdCall -- CHECKME
-                                                         [PA.ByVal]
-                                                         AST.LocalReference elemType argName
-                                                         [(elemType argName, [PA.ByVal])]
-                                                         [Right FA.NoUnwind, Right FA.ReadNone, Right FA.Speculatable]
-                                                         []] 
-                  | AST.Call {
-                      tailCallKind = Nothing -- :: Maybe TailCallKind,
-                      callingConvention = LLVM.AST.CallingConvention.X86_StdCall --:: CallingConvention,
-                      returnAttributes = [PA.ByVal] --:: [PA.ParameterAttribute],
-                      function :: CallableOperand,
-                      arguments = [(elemType argName, [PA.ByVal]),(elemType x, [PA.ByVal])] --:: [(Operand, [PA.ParameterAttribute])],
-                      functionAttributes = [Right FA.NoUnwind, Right FA.ReadNone, Right FA.Speculatable] --:: [Either FA.GroupID FA.FunctionAttribute],
-                      metadata :: InstructionMetadata
-                  }
--}
+                Power x arg  -> [mkTemp n AST.:= AST.Call  { tailCallKind = Nothing -- :: Maybe TailCallKind,
+                                                            , callingConvention = CC.C -- :: CallingConvention, Found in IR construction Instruction.hs
+                                                            , returnAttributes = [] -- :: [PA.ParameterAttribute],
+                                                            , function = Right (AST.ConstantOperand $ C.GlobalReference funcType (mkName "llvm.pow.f64") ) -- :: CallableOperand,
+                                                            , arguments = [(AST.LocalReference elemType $ mkTemp arg, [])] --  :: [(Operand, [PA.ParameterAttribute])],
+                                                            , functionAttributes = [ ] -- :: [Either FA.GroupID FA.FunctionAttribute],
+                                                            , metadata = [] -- :: InstructionMetadata
+                                                            } ]
                 --error "Power not implemented"
                 Neg _ arg -> let argName = mkTemp arg
                              in [ mkTemp n AST.:= AST.FSub AST.noFastMathFlags
@@ -211,7 +238,7 @@ generateEvaluatingCodes memMap (mp, rootIds) =
                                                        , arguments = [(AST.LocalReference elemType $ mkTemp arg, [])] --  :: [(Operand, [PA.ParameterAttribute])],
                                                        , functionAttributes = [ ] -- :: [Either FA.GroupID FA.FunctionAttribute],
                                                        , metadata = [] -- :: InstructionMetadata
-                                                       } ] 
+                                                       } ]
                           --error "for i n [n `at` i <<- "cos" ++ arg `at` i]"
                 Tan arg -> [mkTemp n AST.:= AST.Call  { tailCallKind = Nothing -- :: Maybe TailCallKind,
                                                        , callingConvention = CC.C -- :: CallingConvention, Found in IR construction Instruction.hs
@@ -229,7 +256,7 @@ generateEvaluatingCodes memMap (mp, rootIds) =
                                                       , arguments = [(AST.LocalReference elemType $ mkTemp arg, [])] --  :: [(Operand, [PA.ParameterAttribute])],
                                                       , functionAttributes = [ ] -- :: [Either FA.GroupID FA.FunctionAttribute],
                                                       , metadata = [] -- :: InstructionMetadata
-                                                      } ] 
+                                                      } ]
                           --error "for i n [n `at` i <<- "exp" ++ arg `at` i]"
                 Log arg -> [mkTemp n AST.:= AST.Call  { tailCallKind = Nothing -- :: Maybe TailCallKind,
                                                       , callingConvention = CC.C -- :: CallingConvention, Found in IR construction Instruction.hs
@@ -238,7 +265,7 @@ generateEvaluatingCodes memMap (mp, rootIds) =
                                                       , arguments = [(AST.LocalReference elemType $ mkTemp arg, [])] --  :: [(Operand, [PA.ParameterAttribute])],
                                                       , functionAttributes = [ ] -- :: [Either FA.GroupID FA.FunctionAttribute],
                                                       , metadata = [] -- :: InstructionMetadata
-                                                      } ] 
+                                                      } ]
                           --error "for i n [n `at` i <<- "log" ++ arg `at` i]"
                 Sinh arg -> [mkTemp n AST.:= AST.Call  { tailCallKind = Nothing -- :: Maybe TailCallKind,
                                                         , callingConvention = CC.C -- :: CallingConvention, Found in IR construction Instruction.hs
@@ -247,7 +274,7 @@ generateEvaluatingCodes memMap (mp, rootIds) =
                                                         , arguments = [(AST.LocalReference elemType $ mkTemp arg, [])] --  :: [(Operand, [PA.ParameterAttribute])],
                                                         , functionAttributes = [ ] -- :: [Either FA.GroupID FA.FunctionAttribute],
                                                         , metadata = [] -- :: InstructionMetadata
-                                                         } ] 
+                                                         } ]
                           --error "for i n [n `at` i <<- "sinh" ++ arg `at` i]"
                 Cosh arg -> [mkTemp n AST.:= AST.Call  { tailCallKind = Nothing -- :: Maybe TailCallKind,
                                                        , callingConvention = CC.C -- :: CallingConvention, Found in IR construction Instruction.hs
@@ -301,7 +328,7 @@ generateEvaluatingCodes memMap (mp, rootIds) =
                                                          , arguments = [(AST.LocalReference elemType $ mkTemp arg, [])] --  :: [(Operand, [PA.ParameterAttribute])],
                                                          , functionAttributes = [ ] -- :: [Either FA.GroupID FA.FunctionAttribute],
                                                          , metadata = [] -- :: InstructionMetadata
-                                                         } ] 
+                                                         } ]
                             --error "for i n [n `at` i <<- "asinh" ++ arg `at` i]"
                 Acosh arg -> [mkTemp n AST.:= AST.Call  { tailCallKind = Nothing -- :: Maybe TailCallKind,
                                                         , callingConvention = CC.C -- :: CallingConvention, Found in IR construction Instruction.hs
@@ -310,7 +337,7 @@ generateEvaluatingCodes memMap (mp, rootIds) =
                                                         , arguments = [(AST.LocalReference elemType $ mkTemp arg, [])] --  :: [(Operand, [PA.ParameterAttribute])],
                                                         , functionAttributes = [ ] -- :: [Either FA.GroupID FA.FunctionAttribute],
                                                         , metadata = [] -- :: InstructionMetadata
-                                                        } ] 
+                                                        } ]
                             --error "for i n [n `at` i <<- "acosh" ++ arg `at` i]"
                 Atanh arg -> [mkTemp n AST.:= AST.Call  { tailCallKind = Nothing -- :: Maybe TailCallKind,
                                                          , callingConvention = CC.C -- :: CallingConvention, Found in IR construction Instruction.hs
@@ -319,7 +346,7 @@ generateEvaluatingCodes memMap (mp, rootIds) =
                                                          , arguments = [(AST.LocalReference elemType $ mkTemp arg, [])] --  :: [(Operand, [PA.ParameterAttribute])],
                                                           , functionAttributes = [ ] -- :: [Either FA.GroupID FA.FunctionAttribute],
                                                          , metadata = [] -- :: InstructionMetadata
-                                                         } ] 
+                                                         } ]
                             --error "for i n [n `at` i <<- "atanh" ++ arg `at` i]"
                 -- MARK: Complex related
                 RealImag arg1 arg2 -> error "RealImag should not be here"
@@ -341,22 +368,39 @@ mkModule exp =
   in 
     defaultModule
     { moduleName = "basic"
-    , moduleDefinitions =  [ generateEvaluatingCodes llvmMemMap (exprMap, [topLevel])] ++
-        externals
+    , moduleDefinitions =  [ generateEvaluatingCodes llvmMemMap (exprMap, [topLevel])] 
+        ++ externals
     }
 
 externals :: [AST.Definition]
 externals =
-  [ let
-      defn = C.GlobalReference funcType "llvm.sqrt.f64"
-    in GlobalDefinition $ functionDefaults
-      { name        = mkName "llvm.sqrt.f64"
+  let
+    defn (name, attrs) = GlobalDefinition $ functionDefaults
+      { name        = mkName $ "llvm."++name++".f64"
       , linkage     = External
       --, LLVM.AST.Global.type' = funcType
       , parameters = ([Parameter elemType (mkName "") []], False)
       , returnType = elemType
-      , LLVM.AST.Global.functionAttributes = [Right FA.NoUnwind, Right FA.ReadNone, Right FA.Speculatable]
+      , LLVM.AST.Global.functionAttributes = attrs
       }
-      ]
 
+  in
+    map defn
+      [ ("sin",[Right FA.NoUnwind, Right FA.ReadNone, Right FA.Speculatable])
+      , ("cos",[Right FA.NoUnwind, Right FA.ReadNone, Right FA.Speculatable])
+      , ("tan",[Right FA.NoUnwind, Right FA.ReadNone])
+      , ("sinh",[Right FA.NoUnwind, Right FA.ReadNone])
+      , ("cosh",[Right FA.NoUnwind, Right FA.ReadNone])
+      , ("tanh",[Right FA.NoUnwind, Right FA.ReadNone])
+      , ("asin",[Right FA.NoUnwind, Right FA.ReadNone])
+      , ("acos",[Right FA.NoUnwind, Right FA.ReadNone])
+      , ("atan",[Right FA.NoUnwind, Right FA.ReadNone])
+      , ("asinh",[Right FA.NoUnwind, Right FA.ReadNone])
+      , ("acosh",[Right FA.NoUnwind, Right FA.ReadNone])
+      , ("atanh",[Right FA.NoUnwind, Right FA.ReadNone])
+      , ("exp",[Right FA.NoUnwind, Right FA.ReadNone, Right FA.Speculatable])
+      , ("log",[Right FA.NoUnwind, Right FA.ReadNone, Right FA.Speculatable])
+      , ("pow",[Right FA.NoUnwind, Right FA.ReadNone, Right FA.Speculatable])
+      , ("sqrt",[Right FA.NoUnwind, Right FA.ReadNone, Right FA.Speculatable])
+      ]
   -- from IRBuilder.Module

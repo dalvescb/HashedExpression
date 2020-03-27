@@ -33,13 +33,18 @@ import Data.ByteString.Char8 as BS
 main :: IO ()
 main = do
     -- Encode and represent expressions
-    let x = constant 5.0 --HashedExpression.variable "x"
+    let x = constant 1.0 --HashedExpression.variable "x"
     let y = constant 10.0 --HashedExpression.variable "y"
-    let lcode = mkModule (x + y) 
     let z = constant 49
+    --let lcode = mkModule $ normalize (x + y + z)
+    let lcode = mkModule $ (x * y * z)
+    
     let a = mkModule (negate z)
+    let b = mkModule (sin x)
+    let c = mkModule (exp y)
     let sqrtFun = mkModule ( sqrt z)
-    toLLVM sqrtFun
+    toLLVM lcode
+   -- toLLVM c
     
 toLLVM :: LLVM.AST.Module -> IO ()
 toLLVM mod = withContext $ \ctx -> do
