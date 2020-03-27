@@ -35,6 +35,7 @@ import HashedExpression.Internal.Utils
 import HashedExpression.Prettify (prettifyDebug)
 import LLVM.AST hiding (Mul,FMul)
 import qualified LLVM.AST as AST
+import LLVM.AST.Type
 import LLVM.AST.Global
 import LLVM.Context
 import LLVM.Module
@@ -42,6 +43,10 @@ import qualified LLVM.AST.Constant as C
 import Control.Monad.Except
 import qualified Data.ByteString.Char8 as BS
 import LLVM.AST.Float
+import qualified LLVM.AST.CallingConvention as CC
+import qualified LLVM.AST.ParameterAttribute as PA 
+import qualified LLVM.AST.FunctionAttribute as FA 
+import LLVM.AST.Linkage
 --offset/key into the allocated memory
 offsetType :: AST.Type
 offsetType = AST.IntegerType 64
@@ -88,7 +93,7 @@ mmUpdate exprMap (memMapSoFar, sizeSoFar) nId =
      in (newMemMap, sizeSoFar + nodeSz)
 
 -- | create a temporary variable out of the node id
-mkTemp :: Int -> AST.Name
+--mkTemp :: Int -> AST.Name
 mkTemp n = mkName ("t" ++ show n)
 
 -- | Generate evaluation code (usually an expression and its partial derivatives) given an ExpressionMap and indices of nodes to be computed
@@ -136,11 +141,20 @@ generateEvaluatingCodes memMap (mp, rootIds) =
           let (shape, op) = retrieveInternal n mp
               elementType nId = retrieveElementType nId mp
           in case op of
-                Var _ -> [ ]
+                Var nam -> let varName = mkTemp nam 
+                           in [] {- (mkTemp n) AST.:= AST.Alloca 
+                                                  AST.Type.FloatingPointType.DoubleFP 
+                                                  (AST.LocalReference elemType (varName))
+                                                  Nothing 
+                                                  0 
+                                                  [] ] -}
                 DVar _ -> error "DVar should not be here"
-                Const val -> [ ] --error "for i n [n `at` i <<- show val]"
+                Const val -> [ mkTemp n AST.:=   AST.FAdd AST.noFastMathFlags
+                                                    (AST.ConstantOperand (C.Float $ LLVM.AST.Float.Double 0)) -- Check me - Type of var and const
+                                                    (AST.ConstantOperand $ C.Float $ LLVM.AST.Float.Double val) 
+                                                    []] --error "for i n [n `at` i <<- show val]"
                 Sum _ args -> let argName = map mkTemp args
-                              in   [ (mkTemp n) AST.:= AST.FAdd AST.noFastMathFlags
+                              in   [ mkTemp n AST.:= AST.FAdd AST.noFastMathFlags
                                                 (AST.LocalReference elemType (argName!!0))
                                                 (AST.LocalReference elemType (argName!!1))
                                                 []]
@@ -151,10 +165,33 @@ generateEvaluatingCodes memMap (mp, rootIds) =
                          --   for output you can just use node
                          -- (count args - 1) Fadds
                          -- one address calculation and one store for the output
-                Mul _ args -> error "Mul not implemented"
-                Power x arg  -> error "Power not implemented"
+                Mul _ args -> let argName = map mkTemp args
+                              in   [ mkTemp n AST.:= AST.FMul AST.noFastMathFlags
+                                                       (AST.LocalReference elemType (argName!!0))
+                                                       (AST.LocalReference elemType (argName!!1))
+                                                       []]
+                                                                              --error "Mul not implemented"
+                Power x arg  -> let argName = mkTemp arg
+                                in  [] {-- [ (mkTemp n) AST.:= AST.Call Nothing
+                                                         LLVM.AST.CallingConvention.X86_StdCall -- CHECKME
+                                                         [PA.ByVal]
+                                                         AST.LocalReference elemType argName
+                                                         [(elemType argName, [PA.ByVal])]
+                                                         [Right FA.NoUnwind, Right FA.ReadNone, Right FA.Speculatable]
+                                                         []] 
+                  | AST.Call {
+                      tailCallKind = Nothing -- :: Maybe TailCallKind,
+                      callingConvention = LLVM.AST.CallingConvention.X86_StdCall --:: CallingConvention,
+                      returnAttributes = [PA.ByVal] --:: [PA.ParameterAttribute],
+                      function :: CallableOperand,
+                      arguments = [(elemType argName, [PA.ByVal]),(elemType x, [PA.ByVal])] --:: [(Operand, [PA.ParameterAttribute])],
+                      functionAttributes = [Right FA.NoUnwind, Right FA.ReadNone, Right FA.Speculatable] --:: [Either FA.GroupID FA.FunctionAttribute],
+                      metadata :: InstructionMetadata
+                  }
+-}
+                --error "Power not implemented"
                 Neg _ arg -> let argName = mkTemp arg
-                             in [ (mkTemp n) := AST.FSub AST.noFastMathFlags
+                             in [ mkTemp n AST.:= AST.FSub AST.noFastMathFlags
                                                         (AST.ConstantOperand (C.Float $ LLVM.AST.Float.Double 0))
                                                         (AST.LocalReference elemType (argName))
                                            []]
@@ -164,7 +201,18 @@ generateEvaluatingCodes memMap (mp, rootIds) =
                 Div arg1 arg2  -> error "Div not implemented"
                   --  let divAt i = arg1 `at` i ++ " / " ++ arg2 `at` i
                     -- in for i n [n `at` i <<- divAt i]
-                Sqrt arg -> error "for i n [n `at` i <<- "sqrt" ++ arg `at` i]"
+                Sqrt arg -> [mkTemp n AST.:= AST.Call  { tailCallKind = Nothing -- :: Maybe TailCallKind,
+                                       , callingConvention = CC.C -- :: CallingConvention, Found in IR construction Instruction.hs
+                                       , returnAttributes = [] -- :: [PA.ParameterAttribute],
+                                       , function = Right (AST.ConstantOperand $ C.GlobalReference funcType (mkName "llvm.sqrt.f64") ) -- :: CallableOperand,
+                                       --, arguments = [(AST.LocalReference elemType $ mkTemp arg, [PA.ByVal])] --  :: [(Operand, [PA.ParameterAttribute])],
+                                       , arguments = [(AST.LocalReference elemType $ mkTemp arg, [])] --  :: [(Operand, [PA.ParameterAttribute])],
+                                       --, functionAttributes = [Right FA.NoUnwind, Right FA.ReadNone, Right FA.Speculatable] -- :: [Either FA.GroupID FA.FunctionAttribute],
+                                       , functionAttributes = [ ] -- :: [Either FA.GroupID FA.FunctionAttribute],
+                                       , metadata = [] -- :: InstructionMetadata
+                                       } ]
+                 
+                 --error "for i n [n `at` i <<- "sqrt" ++ arg `at` i]"
                 Sin arg -> error "for i n [n `at` i <<- "sin" ++ arg `at` i]"
                 Cos arg -> error "for i n [n `at` i <<- "cos" ++ arg `at` i]"
                 Tan arg -> error "for i n [n `at` i <<- "tan" ++ arg `at` i]"
@@ -188,6 +236,9 @@ generateEvaluatingCodes memMap (mp, rootIds) =
                 Rotate [amount] arg -> error "Rotate 1D should not be here"
                 Rotate [amount1, amount2] arg -> error "Rotate 2D should not be here"
                 Rotate [amount1, amount2, amount3] arg -> error "Rotate 3D should not be here"
+ 
+funcType = ptr $ FunctionType elemType [elemType] False
+
                 
 mkModule :: Expression d et -> AST.Module
 mkModule exp = 
@@ -197,6 +248,22 @@ mkModule exp =
   in 
     defaultModule
     { moduleName = "basic"
-    , moduleDefinitions = [ generateEvaluatingCodes llvmMemMap (exprMap, [topLevel]) ]
+    , moduleDefinitions =  [ generateEvaluatingCodes llvmMemMap (exprMap, [topLevel])] ++ 
+        externals
     }
-  
+    
+externals :: [AST.Definition]   
+externals = 
+  [ let 
+      defn = C.GlobalReference funcType "llvm.sqrt.f64"
+    in GlobalDefinition $ functionDefaults 
+      { name        = mkName "llvm.sqrt.f64"
+      , linkage     = External
+      --, LLVM.AST.Global.type' = funcType
+      , parameters = ([Parameter elemType (mkName "") []], False)
+      , returnType = elemType
+      , LLVM.AST.Global.functionAttributes = [Right FA.NoUnwind, Right FA.ReadNone, Right FA.Speculatable]
+      }
+      ]
+     
+  -- from IRBuilder.Module 

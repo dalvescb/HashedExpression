@@ -1,18 +1,14 @@
-; ModuleID = 'exampleModule'
+; ModuleID = 'basic'
 source_filename = "<string>"
 
-define i32 @add(i32 %x, i32 %y) {
+define double @func(double %a, double %b) {
 entry:
-  %0 = sub i32 0, %x
-  %1 = add i32 %0, %0
-  %2 = mul i32 %1, %0
-  ret i32 %2
+  %t761793117067181 = fadd double 0.000000e+00, 4.900000e+01
+  %t2445913513075420 = call double @llvm.sqrt.f64(double %t761793117067181)
+  ret double %t2445913513075420
 }
 
-define i32 @swap(i32 %x, i32 %y) {
-entry:
-  %0 = add i32 %x, %y
-  %1 = sub i32 %0, %y
-  %2 = sub i32 %0, %1
-  ret i32 0
-}
+; Function Attrs: nounwind readnone speculatable
+declare double @llvm.sqrt.f64(double) #0
+
+attributes #0 = { nounwind readnone speculatable }

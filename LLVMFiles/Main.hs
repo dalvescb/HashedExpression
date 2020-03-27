@@ -27,16 +27,19 @@ import LLVM.AST.Global
 import LLVM.Context
 import LLVM.AST
 import qualified LLVM.Module as M
-
+import HashedExpression.Internal.Expression
 import Control.Monad.Except
 import Data.ByteString.Char8 as BS
 main :: IO ()
 main = do
     -- Encode and represent expressions
-    let x = HashedExpression.variable "x"
-    let y = HashedExpression.variable "y"
+    let x = constant 5.0 --HashedExpression.variable "x"
+    let y = constant 10.0 --HashedExpression.variable "y"
     let lcode = mkModule (x + y) 
-    toLLVM lcode
+    let z = constant 49
+    let a = mkModule (negate z)
+    let sqrtFun = mkModule ( sqrt z)
+    toLLVM sqrtFun
     
 toLLVM :: LLVM.AST.Module -> IO ()
 toLLVM mod = withContext $ \ctx -> do

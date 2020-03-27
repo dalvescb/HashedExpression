@@ -16,7 +16,7 @@ import Control.Monad.IO.Class
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as BS
 import Data.Foldable
-import Data.Functor.Foldable hiding (fold)
+--import Data.Functor.Foldable hiding (fold)
 import Data.IORef
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
@@ -39,7 +39,7 @@ import qualified LLVM.Internal.OrcJIT.CompileLayer as JIT
 import qualified LLVM.Linking as JIT
 import qualified LLVM.Module as JIT
 import qualified LLVM.OrcJIT as JIT
-import qualified LLVM.Pretty as LLVMPretty
+--import qualified LLVM.Pretty as LLVMPretty
 import qualified LLVM.Relocation as Reloc
 import qualified LLVM.Target as JIT
 
@@ -288,7 +288,8 @@ codegen fexpr = LLVMIR.buildModule "arith.ll" $ do
     alg arg ps (Cos a) = callDblfun (ps Map.! "cos") a `LLVMIR.named` "x"
 
 codegenText :: Expr -> Text
-codegenText = LLVMPretty.ppllvm . codegen
+--codegenText = LLVMPretty.ppllvm . codegen
+codegenText =  codegen
 
 printCodegen :: Expr -> IO ()
 printCodegen = Text.putStrLn . codegenText
