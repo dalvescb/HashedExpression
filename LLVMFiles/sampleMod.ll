@@ -1,14 +1,13 @@
 ; ModuleID = 'basic'
 source_filename = "<string>"
 
-define double @func(double %a, double %b) {
+define double @func(double %y) {
 entry:
-  %t761793118134727 = fadd double 0.000000e+00, 1.000000e+00
-  %t761793117004931 = fadd double 0.000000e+00, 1.000000e+01
-  %t1113859422466852 = fmul double %t761793118134727, %t761793117004931
+  %t3301103891650287 = call double @llvm.exp.f64(double %y)
   %t761793117067181 = fadd double 0.000000e+00, 4.900000e+01
-  %t1124209627697724 = fmul double %t1113859422466852, %t761793117067181
-  ret double %t1124209627697724
+  %t2445913513075420 = call double @llvm.sqrt.f64(double %t761793117067181)
+  %t976351848495370 = fadd double %t3301103891650287, %t2445913513075420
+  ret double %t976351848495370
 }
 
 ; Function Attrs: nounwind readnone speculatable
@@ -54,7 +53,7 @@ declare double @llvm.exp.f64(double) #0
 declare double @llvm.log.f64(double) #0
 
 ; Function Attrs: nounwind readnone speculatable
-declare double @llvm.pow.f64(double) #0
+declare double @llvm.pow.f64(double, double) #0
 
 ; Function Attrs: nounwind readnone speculatable
 declare double @llvm.sqrt.f64(double) #0

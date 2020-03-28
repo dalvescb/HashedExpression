@@ -15,8 +15,8 @@ int main()
   double af = 5, bf = 10;
   //printf(" %d + %d = %d\n",a,b,func(a,b));
   printf(" %f + %f = %f\n",af,bf,func(af,bf));
+  printf("%f",sqrt(49));
   printf("%f",exp(1));
-  printf("%f",sin(1));
   //printf("count: %d\n",c);
   //printf("Before swap %d %d:\n",a,b);
   //swap(a,b);
