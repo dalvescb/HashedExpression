@@ -1,40 +1,55 @@
-{-# LANGUAGE RecursiveDo #-}
-{-# LANGUAGE OverloadedStrings #-}
---Example for adding two integers
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE TypeApplications #-}
+
 module Main where
 
-import Data.Text.Lazy.IO as T
+import Data.Array
+import Data.Complex
+import qualified Data.IntMap.Strict as IM
+import Data.Map (empty, fromList, union)
+import qualified Data.Set as Set
+import HashedExpression.Derivative
 
-import LLVM.AST hiding (function)
-import LLVM.AST.Type as AST
-import qualified LLVM.AST.Float as F
-import qualified LLVM.AST.Constant as C
-import qualified LLVM.AST.IntegerPredicate as P
-
-import LLVM.IRBuilder.Module
-import LLVM.IRBuilder.Monad
-import LLVM.IRBuilder.Instruction
-
-simple :: Module
-simple = buildModule "exampleModule" $ mdo
-  function "f" [(AST.i32, "a")] AST.i32 $ \[a] -> mdo
-    _entry <- block `named` "entry"
-    cond <- icmp P.EQ a (ConstantOperand (C.Int 32 0))
-    condBr cond ifThen ifElse
-    ifThen <- block
-    trVal <- add a (ConstantOperand (C.Int 32 0))
-    br ifExit
-    ifElse <- block `named` "if.else"
-    flVal <- add a (ConstantOperand (C.Int 32 0))
-    br ifExit
-    ifExit <- block `named` "if.exit"
-    r <- phi [(trVal, ifThen), (flVal, ifElse)]
-    ret r
-
-  function "plus" [(AST.i32, "x"), (AST.i32, "y")] AST.i32 $ \[x, y] -> do
-    _entry <- block `named` "entry2"
-    r <- add x y
-    ret r
-
+import HashedExpression.Interp
+import HashedExpression.Operation
+import qualified HashedExpression.Operation
+import HashedExpression.Prettify
+import Data.List (intercalate)
+import Data.Maybe (fromJust)
+import Data.STRef.Strict
+import Graphics.EasyPlot
+import HashedExpression.Internal.CollectDifferential
+import HashedExpression.Internal.ToLLVM
+import HashedExpression.Internal.Utils
+import HashedExpression
+import LLVM.AST.Global
+import LLVM.Context
+import LLVM.AST
+import qualified LLVM.Module as M
+import HashedExpression.Internal.Expression
+import Control.Monad.Except
+import Data.ByteString.Char8 as BS
 main :: IO ()
-main = print simple
+main = do
+    -- Encode and represent expressions
+    let x = HashedExpression.variable "x"
+    let y = HashedExpression.variable "y"
+    let z = constant 49
+    --let lcode = mkModule $ normalize (x + y + z)
+    let lcode = mkModule $ (x * y)
+    
+    let a = mkModule (negate z)
+    let b = mkModule (sin x)
+    let c = exp y
+    let sqrtFun = mkModule (c + sqrt z)
+    toLLVM sqrtFun 
+    --toLLVM c
+    
+toLLVM :: LLVM.AST.Module -> IO ()
+toLLVM mod = withContext $ \ctx -> do
+  llvm <- M.withModuleFromAST ctx mod M.moduleLLVMAssembly
+  BS.putStrLn llvm
+  BS.writeFile "sampleMod.ll" llvm
+
+

@@ -79,8 +79,6 @@ library:
   source-dirs:
     - src
     - embed
-    - LLVMFiles
-    - LLVMFiles/CodeGen
 
 
 
