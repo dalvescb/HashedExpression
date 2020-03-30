@@ -35,21 +35,14 @@ main = do
     -- Encode and represent expressions
     let x = HashedExpression.variable "x"
     let y = HashedExpression.variable "y"
-    let z = constant 49
-    --let lcode = mkModule $ normalize (x + y + z)
-    let lcode = mkModule $ (x * y)
-    
-    let a = mkModule (negate z)
-    let b = mkModule (sin x)
-    let c = exp y
-    let sqrtFun = mkModule (c + sqrt z)
-    toLLVM sqrtFun 
-    --toLLVM c
-    
-toLLVM :: LLVM.AST.Module -> IO ()
-toLLVM mod = withContext $ \ctx -> do
+    let lcode1 = mkModule "test1" $ ( x + y )
+    toLLVM "Test1.ll" lcode1
+     
+toLLVM :: String -> LLVM.AST.Module -> IO ()
+toLLVM filename mod = withContext $ \ctx -> do
   llvm <- M.withModuleFromAST ctx mod M.moduleLLVMAssembly
   BS.putStrLn llvm
-  BS.writeFile "sampleMod.ll" llvm
+  BS.writeFile filename llvm
+
 
 

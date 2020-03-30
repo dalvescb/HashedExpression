@@ -77,7 +77,7 @@ makeLLVMMemMap exprMap = uncurry LLVMMemMap $ foldl' (mmUpdate exprMap) (IM.empt
   where
     nkeys = IM.keys exprMap
 
--- | An update function for foldl
+-- | An helper function for |makeLLVMMemMap|
 --
 mmUpdate ::
        ExpressionMap
@@ -94,8 +94,8 @@ mmUpdate exprMap (memMapSoFar, sizeSoFar) nId =
 
 -- | Generate evaluation code (usually an expression and its partial derivatives) given an ExpressionMap and indices of nodes to be computed
 --
-generateEvaluatingCodes :: LLVMMemMap -> (ExpressionMap, [Int]) -> AST.Definition--Module
-generateEvaluatingCodes memMap (mp, rootIds) =
+generateEvaluatingCodes :: String -> LLVMMemMap -> (ExpressionMap, [Int]) -> AST.Definition--Module
+generateEvaluatingCodes funcName memMap (mp, rootIds) =
   let
     sortedVars = sort $ varNodesWithId mp
     parameterMap = zip (map fst sortedVars) [0..]
@@ -362,7 +362,7 @@ generateEvaluatingCodes memMap (mp, rootIds) =
           Rotate [amount1, amount2, amount3] arg -> error "Rotate 3D should not be here"
   in
     GlobalDefinition functionDefaults
-       { name = Name "func"
+       { name = mkName funcName
        , parameters =
            ( [ Parameter elemType (mkName name) [] | (name,_) <- sortedVars ]
            , False )
@@ -372,17 +372,18 @@ generateEvaluatingCodes memMap (mp, rootIds) =
 
 funcType = ptr $ FunctionType elemType [elemType] False
 
-mkModule :: Expression d et -> AST.Module
-mkModule exp = 
+mkModule :: String -> Expression d et -> AST.Module
+mkModule funcName exp = 
   let 
     Expression topLevel exprMap  = exp 
     llvmMemMap = makeLLVMMemMap exprMap
   in 
     defaultModule
     { moduleName = "basic"
-    , moduleDefinitions =  [ generateEvaluatingCodes llvmMemMap (exprMap, [topLevel])]
-        ++ externals
+    , moduleDefinitions =  [ generateEvaluatingCodes funcName llvmMemMap (exprMap, [topLevel])]
+      ++ externals
     }
+
 
 externals :: [AST.Definition]
 externals =
