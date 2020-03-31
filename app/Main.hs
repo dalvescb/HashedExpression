@@ -36,7 +36,9 @@ main = do
     let x = HashedExpression.variable "x"
     let y = HashedExpression.variable "y"
     let lcode1 = mkModule "test1" $ ( x + y )
-    toLLVM "Test1.ll" lcode1
+    let z = constant 1
+    let lcode2 = mkModule "test2" $ tan z
+    toLLVM "Test2.ll" lcode2
      
 toLLVM :: String -> LLVM.AST.Module -> IO ()
 toLLVM filename mod = withContext $ \ctx -> do

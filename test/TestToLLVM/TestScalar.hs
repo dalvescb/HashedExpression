@@ -43,35 +43,35 @@ main = do
     toLLVM "Test2.ll" lcode2
     let lcode3 = mkModule "test3" $ ( x * y )
     toLLVM "Test3.ll" lcode3
-  {--  let lcode4 = mkModule "test4" $ ( x / y )
-    toLLVM "Test4.ll" lcode4
+    --let lcode4 = mkModule "test4" $ ( x / y )
+    --toLLVM "Test4.ll" lcode4
     let lcode5 = mkModule "test5" $ ( negate y )
     toLLVM "Test5.ll" lcode5
-    let lcode6 = mkModule "test6" $ ( sqrt z )
+    let lcode6 = mkModule "test6" $ ( sqrt x )
     toLLVM "Test6.ll" lcode6
-    let lcode7 = mkModule "test7" $ sin a 
+    let lcode7 = mkModule "test7" $ sin x 
     toLLVM "Test7.ll" lcode7
-    let lcode8 = mkModule "test8" $ ( cos a )
+    let lcode8 = mkModule "test8" $ ( cos x)
     toLLVM "Test8.ll" lcode8
-    let lcode9 = mkModule "test9" $ ( tan a )
+    let lcode9 = mkModule "test9" $ tan x
     toLLVM "Test9.ll" lcode9
-    let lcode10 = mkModule "test10" $ ( sinh a )
+   {-- let lcode10 = mkModule "test10" $ ( sinh x )
     toLLVM "Test10.ll" lcode10
-    let lcode11 = mkModule "test11" $ ( cosh a )
+    let lcode11 = mkModule "test11" $ ( cosh x )
     toLLVM "Test11.ll" lcode11
-    let lcode12 = mkModule "test12" $ ( tanh a )
+    let lcode12 = mkModule "test12" $ ( tanh x )
     toLLVM "Test12.ll" lcode12
-    let lcode13 = mkModule "test13" $ ( asin a )
+    let lcode13 = mkModule "test13" $ ( asin x )
     toLLVM "Test13.ll" lcode13
-    let lcode14 = mkModule "test14" $ ( acos a )
+    let lcode14 = mkModule "test14" $ ( acos x )
     toLLVM "Test14.ll" lcode14
-    let lcode15 = mkModule "test15" $ ( atan a )
+    let lcode15 = mkModule "test15" $ ( atan x )
     toLLVM "Test15.ll" lcode15
-    let lcode16 = mkModule "test16" $ ( asinh a )
+    let lcode16 = mkModule "test16" $ ( asinh x )
     toLLVM "Test16.ll" lcode16
-    let lcode17 = mkModule "test17" $ ( acosh a )
+    let lcode17 = mkModule "test17" $ ( acosh x )
     toLLVM "Test17.ll" lcode17
-    let lcode18 = mkModule "test18" $ ( atanh a )
+    let lcode18 = mkModule "test18" $ ( atanh x )
     toLLVM "Test18.ll" lcode18 -}
    
 toLLVM :: String -> LLVM.AST.Module -> IO ()

@@ -1,9 +1,27 @@
+{-|
+Module      : ToLLVM 
+Description : Module to convert the HashedExpression to LLVM intermediate representation 
+Copyright   : (c) Dr. Christopher Anand, 2019
+                  Padma Pasupathi, 2020
+Maintainer  : pasupatp@mcmaster.ca
+Stability   : experimental
+Portability : POSIX
+
+This module has the following functions,
+ @LLVMMemMap@ - is used to allocate memory for all nodes
+ @GenerateEvaluatingCodes@ - is used to generate LLVM Definition for every operation
+ @mkModule@ - is used to bind all generated LLVM Definitions to a single LLVM module
+ @Externals@ - is used to declare all inbuilt functions in LLVM
+ and other helper functions for the above functions
+-}
+
 module HashedExpression.Internal.ToLLVM 
   (     LLVMMemMap(..)
       , LLVMMemMapEntry
       , Code
       , makeLLVMMemMap
       , mkModule
+      , generateEvaluatingCodes
   ) where 
 
 import Data.Array
@@ -47,38 +65,43 @@ import qualified LLVM.AST.CallingConvention as CC
 import qualified LLVM.AST.ParameterAttribute as PA 
 import qualified LLVM.AST.FunctionAttribute as FA 
 import LLVM.AST.Linkage
---offset/key into the allocated memory
+
+-- | offset/key into the allocated memory
 offsetType :: AST.Type
 offsetType = AST.IntegerType 64
 
---all elements used here are of double type
+-- | all elements used here are of double type
 elemType :: AST.Type
---elementType = Double
 elemType = AST.FloatingPointType AST.DoubleFP
 
+-- | Every node entry in the memory has an Index, Type of entry which can be either Real or Complex and its dimension 
 type LLVMMemMapEntry = (Int, EntryType, Shape)
 
+-- | defines the EntryType which can either be Real or Complex
 data EntryType
     = EntryR
     | EntryC
     deriving (Show, Eq, Ord)
 
+-- | LLVM Code is a list of Named instructions
 type Code = [Named AST.Instruction]
 
+-- | LLVMMemMap has the every node with an index 
 data LLVMMemMap =
     LLVMMemMap
-        { entryMap :: IntMap LLVMMemMapEntry -- node id -> (offset, R or C, shape)
+        { entryMap :: IntMap LLVMMemMapEntry 
         , totalDoubles :: Int
         }
     deriving (Show, Eq, Ord)
     
+-- |  @makeLLVMMemMap@ takes any expression map and converts it to corresponding LLVM memory map   
 makeLLVMMemMap :: ExpressionMap -> LLVMMemMap
 makeLLVMMemMap exprMap = uncurry LLVMMemMap $ foldl' (mmUpdate exprMap) (IM.empty, 0) nkeys
   where
     nkeys = IM.keys exprMap
 
--- | An helper function for |makeLLVMMemMap|
---
+-- | mmUpdate is a helper function for |makeLLVMMemMap|
+
 mmUpdate ::
        ExpressionMap
     -> (IntMap LLVMMemMapEntry, Int)
@@ -108,8 +131,10 @@ generateEvaluatingCodes funcName memMap (mp, rootIds) =
                             Just idx -> mkName (name)
                             _ -> error "variable name missing from parameterMap"
         _ -> mkName ("t" ++ show n)
+    -- | mkTemp2 is for generating temporary variable names when there are more than 2 variables in an addition or multiplication operation    
     mkTemp2 n m = mkName ("s"++show n++"_"++show m)
-
+    
+    -- | callFun is used for generating LLVM code for all operations that uses CALL instruction 
     callFun :: String -> Int -> Int -> [Named AST.Instruction]
     callFun funName n arg = [mkTemp n AST.:= AST.Call  { tailCallKind = Nothing -- :: Maybe TailCallKind,
                                                            , callingConvention = CC.C -- :: CallingConvention, Found in IR construction Instruction.hs
@@ -119,6 +144,8 @@ generateEvaluatingCodes funcName memMap (mp, rootIds) =
                                                            , functionAttributes = [ ] -- :: [Either FA.GroupID FA.FunctionAttribute],
                                                            , metadata = [] -- :: InstructionMetadata
                                                            } ]
+    
+    -- | arithFun is used for generating LLVM code for arithmetic operations like Add and Mul
     arithFun :: (AST.FastMathFlags -> AST.Operand -> AST.Operand -> AST.InstructionMetadata -> AST.Instruction ) -> Int -> [Int] -> [Named AST.Instruction]
     arithFun instr n [] = [ mkTemp n AST.:=  instr AST.noFastMathFlags
                                (AST.ConstantOperand (C.Float $ LLVM.AST.Float.Double 0)) -- Check me - Type of var and const
@@ -152,12 +179,15 @@ generateEvaluatingCodes funcName memMap (mp, rootIds) =
                                               (AST.LocalReference elemType (mkTemp2 n y)) -- Check me - Type of var and const
                                               (AST.LocalReference elemType (mkTemp x))
                                               []] )
+    -- | defines the body of the LLVM module                                          
     body = BasicBlock
        (Name "entry")
        (concatMap genCode $ topologicalSortManyRoots (mp, rootIds))
        (Do $ Ret (Just (LocalReference elemType (head $ map mkTemp rootIds))) [])
+    -- | gets the dimension of the expressionMap
     getShape :: Int -> Shape
     getShape nId = retrieveShape nId mp
+    -- | generates LLVM Definition based on the node id obtained from the topological sort
     genCode :: Int -> Code -- From node id to codes
     genCode n =
       let (shape, op) = retrieveInternal n mp
@@ -166,7 +196,7 @@ generateEvaluatingCodes funcName memMap (mp, rootIds) =
           Var nam -> let--varName = mkTemp nam
                          parIdx = lookup nam parameterMap
                      in [] 
-                     -- For scalars we dont allocate space for local variables. We use mkTemp to refer to the variable name directly.
+           -- For scalars we dont allocate space for local variables. We use mkTemp to refer to the variable name directly.
           DVar _ -> error "DVar should not be here"
           Const val -> [ mkTemp n AST.:=   AST.FAdd AST.noFastMathFlags
                                               (AST.ConstantOperand (C.Float $ LLVM.AST.Float.Double 0)) -- Check me - Type of var and const
@@ -196,160 +226,34 @@ generateEvaluatingCodes funcName memMap (mp, rootIds) =
                                                    []]
                          --error "Div not implemented"
           Sqrt arg -> callFun "sqrt" n arg
-
-          {- [mkTemp n AST.:= AST.Call  { tailCallKind = Nothing -- :: Maybe TailCallKind,
-                                 , callingConvention = CC.C -- :: CallingConvention, Found in IR construction Instruction.hs
-                                 , returnAttributes = [] -- :: [PA.ParameterAttribute],
-                                 , function = Right (AST.ConstantOperand $ C.GlobalReference funcType (mkName "llvm.sqrt.f64") ) -- :: CallableOperand,
-                                 --, arguments = [(AST.LocalReference elemType $ mkTemp arg, [PA.ByVal])] --  :: [(Operand, [PA.ParameterAttribute])],
-                                 , arguments = [(AST.LocalReference elemType $ mkTemp arg, [])] --  :: [(Operand, [PA.ParameterAttribute])],
-                                 --, functionAttributes = [Right FA.NoUnwind, Right FA.ReadNone, Right FA.Speculatable] -- :: [Either FA.GroupID FA.FunctionAttribute],
-                                 , functionAttributes = [ ] -- :: [Either FA.GroupID FA.FunctionAttribute],
-                                 , metadata = [] -- :: InstructionMetadata
-                                 } ] -}
-
            --error "for i n [n `at` i <<- "sqrt" ++ arg `at` i]"
           Sin arg -> callFun "sin" n arg
-
-          {- [mkTemp n AST.:= AST.Call  { tailCallKind = Nothing -- :: Maybe TailCallKind,
-                                                 , callingConvention = CC.C -- :: CallingConvention, Found in IR construction Instruction.hs
-                                                 , returnAttributes = [] -- :: [PA.ParameterAttribute],
-                                                 , function = Right (AST.ConstantOperand $ C.GlobalReference funcType (mkName "llvm.sin.f64") ) -- :: CallableOperand,
-                                                 , arguments = [(AST.LocalReference elemType $ mkTemp arg, [])] --  :: [(Operand, [PA.ParameterAttribute])],
-                                                 , functionAttributes = [ ] -- :: [Either FA.GroupID FA.FunctionAttribute],
-                                                 , metadata = [] -- :: InstructionMetadata
-                                                } ]-}
                     --error "for i n [n `at` i <<- "sin" ++ arg `at` i]"
           Cos arg -> callFun "cos" n arg
-
-          {- [mkTemp n AST.:= AST.Call  { tailCallKind = Nothing -- :: Maybe TailCallKind,
-                                                 , callingConvention = CC.C -- :: CallingConvention, Found in IR construction Instruction.hs
-                                                 , returnAttributes = [] -- :: [PA.ParameterAttribute],
-                                                 , function = Right (AST.ConstantOperand $ C.GlobalReference funcType (mkName "llvm.cos.f64") ) -- :: CallableOperand,
-                                                 , arguments = [(AST.LocalReference elemType $ mkTemp arg, [])] --  :: [(Operand, [PA.ParameterAttribute])],
-                                                 , functionAttributes = [ ] -- :: [Either FA.GroupID FA.FunctionAttribute],
-                                                 , metadata = [] -- :: InstructionMetadata
-                                                 } ]-}
                     --error "for i n [n `at` i <<- "cos" ++ arg `at` i]"
           Tan arg -> callFun "tan" n arg
-          {- [mkTemp n AST.:= AST.Call  { tailCallKind = Nothing -- :: Maybe TailCallKind,
-                                                 , callingConvention = CC.C -- :: CallingConvention, Found in IR construction Instruction.hs
-                                                 , returnAttributes = [] -- :: [PA.ParameterAttribute],
-                                                 , function = Right (AST.ConstantOperand $ C.GlobalReference funcType (mkName "llvm.tan.f64") ) -- :: CallableOperand,
-                                                 , arguments = [(AST.LocalReference elemType $ mkTemp arg, [])] --  :: [(Operand, [PA.ParameterAttribute])],
-                                                 , functionAttributes = [ ] -- :: [Either FA.GroupID FA.FunctionAttribute],
-                                                 , metadata = [] -- :: InstructionMetadata
-                                                  } ]-}
                     --error "for i n [n `at` i <<- "tan" ++ arg `at` i]"
           Exp arg -> callFun "exp" n arg
-          {- [mkTemp n AST.:= AST.Call  { tailCallKind = Nothing -- :: Maybe TailCallKind,
-                                                , callingConvention = CC.C -- :: CallingConvention, Found in IR construction Instruction.hs
-                                                , returnAttributes = [] -- :: [PA.ParameterAttribute],
-                                                , function = Right (AST.ConstantOperand $ C.GlobalReference funcType (mkName "llvm.exp.f64") ) -- :: CallableOperand,
-                                                , arguments = [(AST.LocalReference elemType $ mkTemp arg, [])] --  :: [(Operand, [PA.ParameterAttribute])],
-                                                , functionAttributes = [ ] -- :: [Either FA.GroupID FA.FunctionAttribute],
-                                                , metadata = [] -- :: InstructionMetadata
-                                                } ]-}
                     --error "for i n [n `at` i <<- "exp" ++ arg `at` i]"
           Log arg -> callFun "log" n arg
-          {-[mkTemp n AST.:= AST.Call  { tailCallKind = Nothing -- :: Maybe TailCallKind,
-                                                , callingConvention = CC.C -- :: CallingConvention, Found in IR construction Instruction.hs
-                                                , returnAttributes = [] -- :: [PA.ParameterAttribute],
-                                                , function = Right (AST.ConstantOperand $ C.GlobalReference funcType (mkName "llvm.log.f64") ) -- :: CallableOperand,
-                                                , arguments = [(AST.LocalReference elemType $ mkTemp arg, [])] --  :: [(Operand, [PA.ParameterAttribute])],
-                                                , functionAttributes = [ ] -- :: [Either FA.GroupID FA.FunctionAttribute],
-                                                , metadata = [] -- :: InstructionMetadata
-                                                } ]-}
                     --error "for i n [n `at` i <<- "log" ++ arg `at` i]"
           Sinh arg -> callFun "sinh" n arg
-          {- [mkTemp n AST.:= AST.Call  { tailCallKind = Nothing -- :: Maybe TailCallKind,
-                                                  , callingConvention = CC.C -- :: CallingConvention, Found in IR construction Instruction.hs
-                                                  , returnAttributes = [] -- :: [PA.ParameterAttribute],
-                                                  , function = Right (AST.ConstantOperand $ C.GlobalReference funcType (mkName "llvm.sinh.f64") ) -- :: CallableOperand,
-                                                  , arguments = [(AST.LocalReference elemType $ mkTemp arg, [])] --  :: [(Operand, [PA.ParameterAttribute])],
-                                                  , functionAttributes = [ ] -- :: [Either FA.GroupID FA.FunctionAttribute],
-                                                  , metadata = [] -- :: InstructionMetadata
-                                                   } ]-}
                     --error "for i n [n `at` i <<- "sinh" ++ arg `at` i]"
           Cosh arg -> callFun "cosh" n arg
-          {- [mkTemp n AST.:= AST.Call  { tailCallKind = Nothing -- :: Maybe TailCallKind,
-                                                 , callingConvention = CC.C -- :: CallingConvention, Found in IR construction Instruction.hs
-                                                 , returnAttributes = [] -- :: [PA.ParameterAttribute],
-                                                 , function = Right (AST.ConstantOperand $ C.GlobalReference funcType (mkName "llvm.sin.f64") ) -- :: CallableOperand,
-                                                 , arguments = [(AST.LocalReference elemType $ mkTemp arg, [])] --  :: [(Operand, [PA.ParameterAttribute])],
-                                                 , functionAttributes = [ ] -- :: [Either FA.GroupID FA.FunctionAttribute],
-                                                 , metadata = [] -- :: InstructionMetadata
-                                                 } ]-}
                       --error "for i n [n `at` i <<- "cosh" ++ arg `at` i]"
           Tanh arg -> callFun "tanh" n arg
-          {--[mkTemp n AST.:= AST.Call  { tailCallKind = Nothing -- :: Maybe TailCallKind,
-                                                 , callingConvention = CC.C -- :: CallingConvention, Found in IR construction Instruction.hs
-                                                 , returnAttributes = [] -- :: [PA.ParameterAttribute],
-                                                 , function = Right (AST.ConstantOperand $ C.GlobalReference funcType (mkName "llvm.tanh.f64") ) -- :: CallableOperand,
-                                                 , arguments = [(AST.LocalReference elemType $ mkTemp arg, [])] --  :: [(Operand, [PA.ParameterAttribute])],
-                                                 , functionAttributes = [ ] -- :: [Either FA.GroupID FA.FunctionAttribute],
-                                                 , metadata = [] -- :: InstructionMetadata
-                                                 } ]-}
                       --error "for i n [n `at` i <<- "tanh" ++ arg `at` i]"
           Asin arg -> callFun "asin" n arg
-          {--[mkTemp n AST.:= AST.Call  { tailCallKind = Nothing -- :: Maybe TailCallKind,
-                                                  , callingConvention = CC.C -- :: CallingConvention, Found in IR construction Instruction.hs
-                                                  , returnAttributes = [] -- :: [PA.ParameterAttribute],
-                                                  , function = Right (AST.ConstantOperand $ C.GlobalReference funcType (mkName "llvm.asin.f64") ) -- :: CallableOperand,
-                                                  , arguments = [(AST.LocalReference elemType $ mkTemp arg, [])] --  :: [(Operand, [PA.ParameterAttribute])],
-                                                  , functionAttributes = [ ] -- :: [Either FA.GroupID FA.FunctionAttribute],
-                                                  , metadata = [] -- :: InstructionMetadata
-                                                  } ]-}
                       --error "for i n [n `at` i <<- "asin" ++ arg `at` i]"
           Acos arg -> callFun "acos" n arg
-          {--[mkTemp n AST.:= AST.Call  { tailCallKind = Nothing -- :: Maybe TailCallKind,
-                                                 , callingConvention = CC.C -- :: CallingConvention, Found in IR construction Instruction.hs
-                                                 , returnAttributes = [] -- :: [PA.ParameterAttribute],
-                                                 , function = Right (AST.ConstantOperand $ C.GlobalReference funcType (mkName "llvm.acos.f64") ) -- :: CallableOperand,
-                                                 , arguments = [(AST.LocalReference elemType $ mkTemp arg, [])] --  :: [(Operand, [PA.ParameterAttribute])],
-                                                 , functionAttributes = [ ] -- :: [Either FA.GroupID FA.FunctionAttribute],
-                                                 , metadata = [] -- :: InstructionMetadata
-                                                  } ]-}
                       --error "for i n [n `at` i <<- "acos" ++ arg `at` i]"
           Atan arg -> callFun "atan" n arg
-          {--[mkTemp n AST.:= AST.Call  { tailCallKind = Nothing -- :: Maybe TailCallKind,
-                                                  , callingConvention = CC.C -- :: CallingConvention, Found in IR construction Instruction.hs
-                                                  , returnAttributes = [] -- :: [PA.ParameterAttribute],
-                                                  , function = Right (AST.ConstantOperand $ C.GlobalReference funcType (mkName "llvm.atan.f64") ) -- :: CallableOperand,
-                                                   , arguments = [(AST.LocalReference elemType $ mkTemp arg, [])] --  :: [(Operand, [PA.ParameterAttribute])],
-                                                  , functionAttributes = [ ] -- :: [Either FA.GroupID FA.FunctionAttribute],
-                                                  , metadata = [] -- :: InstructionMetadata
-                                                  } ]-}
                       --error "for i n [n `at` i <<- "atan" ++ arg `at` i]"
           Asinh arg -> callFun "asinh" n arg
-          {--[mkTemp n AST.:= AST.Call  { tailCallKind = Nothing -- :: Maybe TailCallKind,
-                                                   , callingConvention = CC.C -- :: CallingConvention, Found in IR construction Instruction.hs
-                                                   , returnAttributes = [] -- :: [PA.ParameterAttribute],
-                                                   , function = Right (AST.ConstantOperand $ C.GlobalReference funcType (mkName "llvm.asinh.f64") ) -- :: CallableOperand,
-                                                   , arguments = [(AST.LocalReference elemType $ mkTemp arg, [])] --  :: [(Operand, [PA.ParameterAttribute])],
-                                                   , functionAttributes = [ ] -- :: [Either FA.GroupID FA.FunctionAttribute],
-                                                   , metadata = [] -- :: InstructionMetadata
-                                                   } ]-}
                       --error "for i n [n `at` i <<- "asinh" ++ arg `at` i]"
           Acosh arg -> callFun "acosh" n arg
-          {- -[mkTemp n AST.:= AST.Call  { tailCallKind = Nothing -- :: Maybe TailCallKind,
-                                                  , callingConvention = CC.C -- :: CallingConvention, Found in IR construction Instruction.hs
-                                                  , returnAttributes = [] -- :: [PA.ParameterAttribute],
-                                                  , function = Right (AST.ConstantOperand $ C.GlobalReference funcType (mkName "llvm.acosh.f64") ) -- :: CallableOperand,
-                                                  , arguments = [(AST.LocalReference elemType $ mkTemp arg, [])] --  :: [(Operand, [PA.ParameterAttribute])],
-                                                  , functionAttributes = [ ] -- :: [Either FA.GroupID FA.FunctionAttribute],
-                                                  , metadata = [] -- :: InstructionMetadata
-                                                  } ]-}
                       --error "for i n [n `at` i <<- "acosh" ++ arg `at` i]"
           Atanh arg -> callFun "atanh" n arg
-          {--[mkTemp n AST.:= AST.Call  { tailCallKind = Nothing -- :: Maybe TailCallKind,
-                                                   , callingConvention = CC.C -- :: CallingConvention, Found in IR construction Instruction.hs
-                                                   , returnAttributes = [] -- :: [PA.ParameterAttribute],
-                                                   , function = Right (AST.ConstantOperand $ C.GlobalReference funcType (mkName "llvm.atanh.f64") ) -- :: CallableOperand,
-                                                   , arguments = [(AST.LocalReference elemType $ mkTemp arg, [])] --  :: [(Operand, [PA.ParameterAttribute])],
-                                                    , functionAttributes = [ ] -- :: [Either FA.GroupID FA.FunctionAttribute],
-                                                   , metadata = [] -- :: InstructionMetadata
-                                                   } ]-}
                       --error "for i n [n `at` i <<- "atanh" ++ arg `at` i]"
           -- MARK: Complex related. Not related to Scalar
           RealImag arg1 arg2 -> error "RealImag should not be here"
@@ -370,8 +274,10 @@ generateEvaluatingCodes funcName memMap (mp, rootIds) =
        , basicBlocks = [body]
        }
 
+-- | defining type of functions
 funcType = ptr $ FunctionType elemType [elemType] False
 
+-- | @mkModule@ function for combining all generated LLVM Definitions to a single LLVM module
 mkModule :: String -> Expression d et -> AST.Module
 mkModule funcName exp = 
   let 
@@ -384,7 +290,7 @@ mkModule funcName exp =
       ++ externals
     }
 
-
+-- | Declaration of all predefined functions used by LLVM definitions
 externals :: [AST.Definition]
 externals =
   let

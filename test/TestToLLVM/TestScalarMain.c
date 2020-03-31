@@ -37,11 +37,11 @@ int main()
   ret=test(3,af,bf);
   ret?pass++:fail++;
 
- /* printf(" %f / %f = %f\n",af,bf,test4(af,bf));
+  /*printf(" %f / %f = %f\n",bf,af,test4(bf,af));
   ret=test(4,af,bf);
-  ret?pass++:fail++;
+  ret?pass++:fail++; */
 
-  /*printf("negate %f = %f\n",bf,test5(bf));
+  printf("negate %f = %f\n",bf,test5(bf));
   ret=test(5,bf,0);
   ret?pass++:fail++;
 
@@ -61,7 +61,7 @@ int main()
   ret=test(9,cf,0);
   ret?pass++:fail++;
 
-  printf("sinh %f = %f\n",cf,test10(cf));
+  /*printf("sinh %f = %f\n",cf,test10(cf));
   ret=test(10,cf,0);
   ret?pass++:fail++;
 
@@ -95,7 +95,7 @@ int main()
 
   printf("atanh %f = %f\n",cf,test18(cf));
   ret=test(18,cf,0);
-  ret?pass++:fail++; */
+  ret?pass++:fail++;*/
     //if (ret == false){
     //  fail += 1;
     //} else {
@@ -129,16 +129,16 @@ int test(int n, double a, double b)
  /*case 4:{
      resultVal = test4(a,b);
      trueVal = a / b;
-     }
+     }*/
  case 5:{
     resultVal = test5(a);
     trueVal = - a;
     }
- case 6:{
+  case 6:{
     resultVal = test6(a);
     trueVal = sqrt(a);
     }
- /*case 7:{
+ case 7:{
     resultVal = test7(a);
     trueVal = sin(a);
     }
@@ -150,7 +150,7 @@ int test(int n, double a, double b)
     resultVal = test9(a);
     trueVal = tan(a);
     }
- case 10:{
+ /*case 10:{
     resultVal = test10(a);
     trueVal = sinh(a);
     }
@@ -185,7 +185,7 @@ int test(int n, double a, double b)
  case 18:{
     resultVal = test18(a);
     trueVal = atanh(a);
-    }   */        //default: printf("Unknown selection\n");
+    }      */     //default: printf("Unknown selection\n");
  }
  printf("Test%d:  ",n);
  if (resultVal == trueVal) {
