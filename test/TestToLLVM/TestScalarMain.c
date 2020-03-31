@@ -39,7 +39,7 @@ int main()
 
   /*printf(" %f / %f = %f\n",bf,af,test4(bf,af));
   ret=test(4,af,bf);
-  ret?pass++:fail++; */
+  ret?pass++:fail++;*/
 
   printf("negate %f = %f\n",bf,test5(bf));
   ret=test(5,bf,0);
@@ -57,11 +57,11 @@ int main()
   ret=test(7,cf,0);
   ret?pass++:fail++;
 
-  printf("tan %f = %f\n",cf,test9(cf));
+ /* printf("tan %f = %f\n",cf,test9(cf));
   ret=test(9,cf,0);
   ret?pass++:fail++;
 
-  /*printf("sinh %f = %f\n",cf,test10(cf));
+   printf("sinh %f = %f\n",cf,test10(cf));
   ret=test(10,cf,0);
   ret?pass++:fail++;
 
@@ -114,7 +114,7 @@ int test(int n, double a, double b)
  bool ret;
  switch (n)
  {
- case 1:{
+ /*case 1:{
     resultVal = test1(a,b);
     trueVal = a + b;
     }
@@ -126,10 +126,10 @@ int test(int n, double a, double b)
      resultVal = test3(a,b);
      trueVal = a * b;
      }
- /*case 4:{
+/*case 4:{
      resultVal = test4(a,b);
      trueVal = a / b;
-     }*/
+     }
  case 5:{
     resultVal = test5(a);
     trueVal = - a;
@@ -150,7 +150,7 @@ int test(int n, double a, double b)
     resultVal = test9(a);
     trueVal = tan(a);
     }
- /*case 10:{
+ case 10:{
     resultVal = test10(a);
     trueVal = sinh(a);
     }
@@ -186,6 +186,12 @@ int test(int n, double a, double b)
     resultVal = test18(a);
     trueVal = atanh(a);
     }      */     //default: printf("Unknown selection\n");
+ case 19:{
+
+    resultVal = test19(a,b);
+    b = int(b);
+    trueVal = pow(a,b);
+ }
  }
  printf("Test%d:  ",n);
  if (resultVal == trueVal) {

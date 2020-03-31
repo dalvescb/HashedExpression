@@ -52,10 +52,10 @@ main = do
     let lcode7 = mkModule "test7" $ sin x 
     toLLVM "Test7.ll" lcode7
     let lcode8 = mkModule "test8" $ ( cos x)
-    toLLVM "Test8.ll" lcode8
-    let lcode9 = mkModule "test9" $ tan x
+    toLLVM "Test8.ll" lcode8 
+    {--let lcode9 = mkModule "test9" $ tan x
     toLLVM "Test9.ll" lcode9
-   {-- let lcode10 = mkModule "test10" $ ( sinh x )
+    let lcode10 = mkModule "test10" $ ( sinh x )
     toLLVM "Test10.ll" lcode10
     let lcode11 = mkModule "test11" $ ( cosh x )
     toLLVM "Test11.ll" lcode11
@@ -73,6 +73,8 @@ main = do
     toLLVM "Test17.ll" lcode17
     let lcode18 = mkModule "test18" $ ( atanh x )
     toLLVM "Test18.ll" lcode18 -}
+    let lcode19 = mkModule "test19" $ ( x HashedExpression.^ 2 )
+    toLLVM "lcode19.ll" lcode19
    
 toLLVM :: String -> LLVM.AST.Module -> IO ()
 toLLVM filename mod = withContext $ \ctx -> do

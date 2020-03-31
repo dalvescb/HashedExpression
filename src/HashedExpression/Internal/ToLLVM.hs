@@ -1,6 +1,6 @@
 {-|
-Module      : ToLLVM 
-Description : Module to convert the HashedExpression to LLVM intermediate representation 
+Module      : ToLLVM
+Description : Module to convert the HashedExpression to LLVM intermediate representation
 Copyright   : (c) Dr. Christopher Anand, 2019
                   Padma Pasupathi, 2020
 Maintainer  : pasupatp@mcmaster.ca
@@ -15,7 +15,7 @@ This module has the following functions,
  and other helper functions for the above functions
 -}
 
-module HashedExpression.Internal.ToLLVM 
+module HashedExpression.Internal.ToLLVM
   (     LLVMMemMap(..)
       , LLVMMemMapEntry
       , Code
@@ -74,7 +74,7 @@ offsetType = AST.IntegerType 64
 elemType :: AST.Type
 elemType = AST.FloatingPointType AST.DoubleFP
 
--- | Every node entry in the memory has an Index, Type of entry which can be either Real or Complex and its dimension 
+-- | Every node entry in the memory has an Index, Type of entry which can be either Real or Complex and its dimension
 type LLVMMemMapEntry = (Int, EntryType, Shape)
 
 -- | defines the EntryType which can either be Real or Complex
@@ -86,15 +86,15 @@ data EntryType
 -- | LLVM Code is a list of Named instructions
 type Code = [Named AST.Instruction]
 
--- | LLVMMemMap has the every node with an index 
+-- | LLVMMemMap has the every node with an index
 data LLVMMemMap =
     LLVMMemMap
-        { entryMap :: IntMap LLVMMemMapEntry 
+        { entryMap :: IntMap LLVMMemMapEntry
         , totalDoubles :: Int
         }
     deriving (Show, Eq, Ord)
-    
--- |  @makeLLVMMemMap@ takes any expression map and converts it to corresponding LLVM memory map   
+
+-- |  @makeLLVMMemMap@ takes any expression map and converts it to corresponding LLVM memory map
 makeLLVMMemMap :: ExpressionMap -> LLVMMemMap
 makeLLVMMemMap exprMap = uncurry LLVMMemMap $ foldl' (mmUpdate exprMap) (IM.empty, 0) nkeys
   where
@@ -131,10 +131,10 @@ generateEvaluatingCodes funcName memMap (mp, rootIds) =
                             Just idx -> mkName (name)
                             _ -> error "variable name missing from parameterMap"
         _ -> mkName ("t" ++ show n)
-    -- | mkTemp2 is for generating temporary variable names when there are more than 2 variables in an addition or multiplication operation    
+    -- | mkTemp2 is for generating temporary variable names when there are more than 2 variables in an addition or multiplication operation
     mkTemp2 n m = mkName ("s"++show n++"_"++show m)
-    
-    -- | callFun is used for generating LLVM code for all operations that uses CALL instruction 
+
+    -- | callFun is used for generating LLVM code for all operations that uses CALL instruction
     callFun :: String -> Int -> Int -> [Named AST.Instruction]
     callFun funName n arg = [mkTemp n AST.:= AST.Call  { tailCallKind = Nothing -- :: Maybe TailCallKind,
                                                            , callingConvention = CC.C -- :: CallingConvention, Found in IR construction Instruction.hs
@@ -144,7 +144,7 @@ generateEvaluatingCodes funcName memMap (mp, rootIds) =
                                                            , functionAttributes = [ ] -- :: [Either FA.GroupID FA.FunctionAttribute],
                                                            , metadata = [] -- :: InstructionMetadata
                                                            } ]
-    
+
     -- | arithFun is used for generating LLVM code for arithmetic operations like Add and Mul
     arithFun :: (AST.FastMathFlags -> AST.Operand -> AST.Operand -> AST.InstructionMetadata -> AST.Instruction ) -> Int -> [Int] -> [Named AST.Instruction]
     arithFun instr n [] = [ mkTemp n AST.:=  instr AST.noFastMathFlags
@@ -179,7 +179,7 @@ generateEvaluatingCodes funcName memMap (mp, rootIds) =
                                               (AST.LocalReference elemType (mkTemp2 n y)) -- Check me - Type of var and const
                                               (AST.LocalReference elemType (mkTemp x))
                                               []] )
-    -- | defines the body of the LLVM module                                          
+    -- | defines the body of the LLVM module
     body = BasicBlock
        (Name "entry")
        (concatMap genCode $ topologicalSortManyRoots (mp, rootIds))
@@ -204,11 +204,18 @@ generateEvaluatingCodes funcName memMap (mp, rootIds) =
                                               []] --error "for i n [n `at` i <<- show val]"
           Sum _ args -> arithFun AST.FAdd n args
           Mul _ args -> arithFun AST.FMul n args
-          Power x arg  -> [mkTemp n AST.:= AST.Call  { tailCallKind = Nothing -- :: Maybe TailCallKind,
+          Power x arg  -> {-case x of
+                             2 -> arithFun AST.FMul n [arg,arg]
+                             1 -> arithFun AST.FAdd n [arg]
+                             0 -> Const 1
+                             (-1) ->
+                             _ -> error $ "error"-}
+            [mkTemp n AST.:= AST.Call  { tailCallKind = Nothing -- :: Maybe TailCallKind,
                                                       , callingConvention = CC.C -- :: CallingConvention, Found in IR construction Instruction.hs
                                                       , returnAttributes = [] -- :: [PA.ParameterAttribute],
-                                                      , function = Right (AST.ConstantOperand $ C.GlobalReference funcType (mkName "llvm.pow.f64") ) -- :: CallableOperand,
-                                                      , arguments = [(AST.LocalReference elemType $ mkTemp arg, []),(AST.LocalReference elemType $ mkTemp x, [])] --  :: [(Operand, [PA.ParameterAttribute])],
+                                                      , function = Right (AST.ConstantOperand $ C.GlobalReference funcType2 (mkName "llvm.pow.f64") ) -- :: CallableOperand,
+                                                      , arguments = [(AST.LocalReference elemType $ mkTemp arg, []),(AST.ConstantOperand (C.Float $ LLVM.AST.Float.Double $ fromIntegral(x)),[])]
+                                                      --(AST.ConstantOperand (C.Float $ LLVM.AST.Float.Double $ fromIntegral(x)),[])] --  :: [(Operand, [PA.ParameterAttribute])],
                                                       , functionAttributes = [] -- :: [Either FA.GroupID FA.FunctionAttribute],
                                                       , metadata = [] -- :: InstructionMetadata
                                                       } ]
@@ -276,6 +283,7 @@ generateEvaluatingCodes funcName memMap (mp, rootIds) =
 
 -- | defining type of functions
 funcType = ptr $ FunctionType elemType [elemType] False
+funcType2 = ptr $ FunctionType elemType [elemType,elemType] False
 
 -- | @mkModule@ function for combining all generated LLVM Definitions to a single LLVM module
 mkModule :: String -> Expression d et -> AST.Module

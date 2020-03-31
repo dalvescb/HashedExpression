@@ -48,7 +48,7 @@ instance ToShape d => Num (Expression d R) where
 
 -------------------------------------------------------------------------------
 instance ToShape d => Fractional (Expression d R) where
-    e1 / e2 = ensureSameShape e1 e2 $ e1 * e2 ^ (-1)
+    e1 / e2 = ensureSameShape e1 e2 $ e1 * e2 ^ (-1) -- TODO why aren't we using DIV?
     fromRational r = fromDouble $ fromRational r
 
 -------------------------------------------------------------------------------
