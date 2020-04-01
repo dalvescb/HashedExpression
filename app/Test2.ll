@@ -1,10 +1,11 @@
 ; ModuleID = 'basic'
 source_filename = "<string>"
 
-define double @test1(double %x) {
+define double @test1(double %x, double %y) {
 entry:
-  %t1405989648669474 = call double @llvm.pow.f64(double %x, double 2.000000e+00)
-  ret double %t1405989648669474
+  %t1513173470626744 = call double @llvm.pow.f64(double %y, double -1.000000e+00)
+  %t1254205178747003 = fmul double %x, %t1513173470626744
+  ret double %t1254205178747003
 }
 
 ; Function Attrs: nounwind readnone speculatable

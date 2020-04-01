@@ -43,8 +43,8 @@ main = do
     toLLVM "Test2.ll" lcode2
     let lcode3 = mkModule "test3" $ ( x * y )
     toLLVM "Test3.ll" lcode3
-    --let lcode4 = mkModule "test4" $ ( x / y )
-    --toLLVM "Test4.ll" lcode4
+    let lcode4 = mkModule "test4" $ ( x / y )
+    toLLVM "Test4.ll" lcode4
     let lcode5 = mkModule "test5" $ ( negate y )
     toLLVM "Test5.ll" lcode5
     let lcode6 = mkModule "test6" $ ( sqrt x )
@@ -52,8 +52,8 @@ main = do
     let lcode7 = mkModule "test7" $ sin x 
     toLLVM "Test7.ll" lcode7
     let lcode8 = mkModule "test8" $ ( cos x)
-    toLLVM "Test8.ll" lcode8 
-    {--let lcode9 = mkModule "test9" $ tan x
+    toLLVM "Test8.ll" lcode8
+    let lcode9 = mkModule "test9" $ tan x
     toLLVM "Test9.ll" lcode9
     let lcode10 = mkModule "test10" $ ( sinh x )
     toLLVM "Test10.ll" lcode10
@@ -72,9 +72,13 @@ main = do
     let lcode17 = mkModule "test17" $ ( acosh x )
     toLLVM "Test17.ll" lcode17
     let lcode18 = mkModule "test18" $ ( atanh x )
-    toLLVM "Test18.ll" lcode18 -}
-    let lcode19 = mkModule "test19" $ ( x HashedExpression.^ 2 )
-    toLLVM "lcode19.ll" lcode19
+    toLLVM "Test18.ll" lcode18
+    let lcode19 = mkModule "test19" $ ( exp x )
+    toLLVM "Test19.ll" lcode19
+    let lcode20 = mkModule "test20" $ ( log x )
+    toLLVM "Test20.ll" lcode20
+    let lcode21 = mkModule "test21" $ ( x HashedExpression.^ 2 )
+    toLLVM "Test21.ll" lcode21
    
 toLLVM :: String -> LLVM.AST.Module -> IO ()
 toLLVM filename mod = withContext $ \ctx -> do

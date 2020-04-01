@@ -139,7 +139,7 @@ generateEvaluatingCodes funcName memMap (mp, rootIds) =
     callFun funName n arg = [mkTemp n AST.:= AST.Call  { tailCallKind = Nothing -- :: Maybe TailCallKind,
                                                            , callingConvention = CC.C -- :: CallingConvention, Found in IR construction Instruction.hs
                                                            , returnAttributes = [] -- :: [PA.ParameterAttribute],
-                                                           , function = Right (AST.ConstantOperand $ C.GlobalReference funcType (mkName $ "llvm."++funName++".f64") ) -- :: CallableOperand,
+                                                           , function = Right (AST.ConstantOperand $ C.GlobalReference funcType (nameDef funName) ) -- :: CallableOperand,
                                                            , arguments = [(AST.LocalReference elemType $ mkTemp arg, [])] --  :: [(Operand, [PA.ParameterAttribute])],
                                                            , functionAttributes = [ ] -- :: [Either FA.GroupID FA.FunctionAttribute],
                                                            , metadata = [] -- :: InstructionMetadata
@@ -285,6 +285,17 @@ generateEvaluatingCodes funcName memMap (mp, rootIds) =
 funcType = ptr $ FunctionType elemType [elemType] False
 funcType2 = ptr $ FunctionType elemType [elemType,elemType] False
 
+nameDef name = case name of 
+                          "sin" -> mkName $ "llvm."++name++".f64"
+                          "cos" -> mkName $ "llvm."++name++".f64"
+                          "log" -> mkName $ "llvm."++name++".f64"
+                          "exp" -> mkName $ "llvm."++name++".f64"
+                          "pow" -> mkName $ "llvm."++name++".f64"
+                          "sqrt" -> mkName $ "llvm."++name++".f64"
+                          "tan" -> mkName name
+                          _ -> mkName name
+
+
 -- | @mkModule@ function for combining all generated LLVM Definitions to a single LLVM module
 mkModule :: String -> Expression d et -> AST.Module
 mkModule funcName exp = 
@@ -294,6 +305,7 @@ mkModule funcName exp =
   in 
     defaultModule
     { moduleName = "basic"
+    , moduleSourceFileName = "Main.hs"
     , moduleDefinitions =  [ generateEvaluatingCodes funcName llvmMemMap (exprMap, [topLevel])]
       ++ externals
     }
@@ -305,13 +317,12 @@ externals =
     onePar = ([Parameter elemType (mkName "") []], False)
     twoPar = ([Parameter elemType (mkName "") [], Parameter elemType (mkName "") []], False)
     defn (name, attrs, par) = GlobalDefinition $ functionDefaults
-      { name        = mkName $ "llvm."++name++".f64"
-      , linkage     = External
+      { name       = nameDef name --mkName $ "llvm."++name++".f64"
+      , linkage    = External
       , parameters = par
       , returnType = elemType
       , LLVM.AST.Global.functionAttributes = attrs
       }
-
   in
     map defn
       [ ("sin",[Right FA.NoUnwind, Right FA.ReadNone, Right FA.Speculatable], onePar)
