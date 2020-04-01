@@ -146,34 +146,15 @@ int test(int n, double a, double b)
      break;
      }
  case 5:{
-    printf("negate the value %f\n",a);
     resultVal = test5(a);
-    printf("resultval: %f\n",resultVal);
     trueVal = (-a);
-    printf("trueval: %f\n",trueVal);
-    if (resultVal == trueVal){
-    printf("both are equal %f %f\n",resultVal,trueVal);
-
-    }
-    else{
-    printf("they are not equal %f %f\n",resultVal,trueVal);
-    }
     break;
     }
   case 6:{
-    printf("sqrt of the value %f\n",a);
     resultVal = test6(a);
-    printf("resultval: %f\n",resultVal);
     trueVal = sqrt(a);
-    printf("trueval: %f\n",trueVal);
-        if (resultVal == trueVal){
-        printf("both are equal %f %f\n",resultVal,trueVal);
-        }
-        else{
-        printf("they are not equal %f %f\n",resultVal,trueVal);
-        }
-        break;
-        }
+    break;
+   }
  case 7:{
     resultVal = test7(a);
     trueVal = sin(a);

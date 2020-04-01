@@ -1,14 +1,14 @@
 {-|
 Module      : ToLLVM
 Description : Module to convert the HashedExpression to LLVM intermediate representation
-Copyright   : (c) Dr. Christopher Anand, 2019
-                  Padma Pasupathi, 2020
+Copyright   : (c) Padma Pasupathi, 2020
+Licence     : BSD Licence 2.0                  
 Maintainer  : pasupatp@mcmaster.ca
 Stability   : experimental
 Portability : POSIX
 
 This module has the following functions,
- @LLVMMemMap@ - is used to allocate memory for all nodes
+ @LLVMMemMap@ - is used to allocate memory for all nodes 
  @GenerateEvaluatingCodes@ - is used to generate LLVM Definition for every operation
  @mkModule@ - is used to bind all generated LLVM Definitions to a single LLVM module
  @Externals@ - is used to declare all inbuilt functions in LLVM
@@ -285,7 +285,7 @@ generateEvaluatingCodes funcName memMap (mp, rootIds) =
 funcType = ptr $ FunctionType elemType [elemType] False
 funcType2 = ptr $ FunctionType elemType [elemType,elemType] False
 
-nameDef name = case name of 
+nameDef name = case name of
                           "sin" -> mkName $ "llvm."++name++".f64"
                           "cos" -> mkName $ "llvm."++name++".f64"
                           "log" -> mkName $ "llvm."++name++".f64"
