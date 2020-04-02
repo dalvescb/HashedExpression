@@ -1,3 +1,5 @@
+{-# OPTIONS_HADDOCK prune, ignore-exports #-}
+
 {-|
 Module      : ToLLVM
 Description : Module to convert the HashedExpression to LLVM intermediate representation
@@ -8,10 +10,10 @@ Stability   : experimental
 Portability : POSIX
 
 This module has the following functions,
- @LLVMMemMap@ - is used to allocate memory for all nodes 
- @GenerateEvaluatingCodes@ - is used to generate LLVM Definition for every operation
- @mkModule@ - is used to bind all generated LLVM Definitions to a single LLVM module
- @Externals@ - is used to declare all inbuilt functions in LLVM
+ __/LLVMMemMap/__ - is used to allocate memory for all nodes 
+ __/GenerateEvaluatingCodes/__ - is used to generate LLVM Definition for every operation
+__/mkModule/__ - is used to bind all generated LLVM Definitions to a single LLVM module
+ __/Externals/__ - is used to declare all inbuilt functions in LLVM
  and other helper functions for the above functions
 -}
 
@@ -75,27 +77,30 @@ elemType :: AST.Type
 elemType = AST.FloatingPointType AST.DoubleFP
 
 -- | Every node entry in the memory has an Index, Type of entry which can be either Real or Complex and its dimension
-type LLVMMemMapEntry = (Int, EntryType, Shape)
+type LLVMMemMapEntry = (Int,      -- ^ node index, Type of node (Real or complex),
+                        EntryType,-- ^ Type of node (Real or complex),
+                        Shape)    -- ^ Dimension of the node (0 -[]: Scalar 1D - [n]: Array, 2D - [n,m]: Matrix . . . )
 
 -- | defines the EntryType which can either be Real or Complex
 data EntryType
-    = EntryR
-    | EntryC
+    = EntryR -- ^ node of type Real number
+    | EntryC -- ^ node of type Complex number
     deriving (Show, Eq, Ord)
 
 -- | LLVM Code is a list of Named instructions
-type Code = [Named AST.Instruction]
+type Code = [Named AST.Instruction] -- ^ List of LLVM instructions forming final code
 
 -- | LLVMMemMap has the every node with an index
 data LLVMMemMap =
     LLVMMemMap
-        { entryMap :: IntMap LLVMMemMapEntry
-        , totalDoubles :: Int
+        { entryMap :: IntMap LLVMMemMapEntry -- ^ every node entry with its index.
+        , totalDoubles :: Int -- ^ Total number of entries
         }
     deriving (Show, Eq, Ord)
 
 -- |  @makeLLVMMemMap@ takes any expression map and converts it to corresponding LLVM memory map
-makeLLVMMemMap :: ExpressionMap -> LLVMMemMap
+makeLLVMMemMap :: ExpressionMap -- ^ Expression with its dimension/shape
+                  -> LLVMMemMap -- ^ node entry in memory
 makeLLVMMemMap exprMap = uncurry LLVMMemMap $ foldl' (mmUpdate exprMap) (IM.empty, 0) nkeys
   where
     nkeys = IM.keys exprMap
@@ -103,10 +108,10 @@ makeLLVMMemMap exprMap = uncurry LLVMMemMap $ foldl' (mmUpdate exprMap) (IM.empt
 -- | mmUpdate is a helper function for |makeLLVMMemMap|
 
 mmUpdate ::
-       ExpressionMap
-    -> (IntMap LLVMMemMapEntry, Int)
-    -> Int
-    -> (IntMap LLVMMemMapEntry, Int)
+       ExpressionMap -- ^ Expression mapped with its dimension
+    -> (IntMap LLVMMemMapEntry, Int) -- ^ current memory and its size
+    -> Int -- ^ node id
+    -> (IntMap LLVMMemMapEntry, Int) -- ^ updated memory and updated size
 mmUpdate exprMap (memMapSoFar, sizeSoFar) nId =
     let (shape, node) = retrieveInternal nId exprMap
         (nodeSz, mmShape)
@@ -117,25 +122,38 @@ mmUpdate exprMap (memMapSoFar, sizeSoFar) nId =
 
 -- | Generate evaluation code (usually an expression and its partial derivatives) given an ExpressionMap and indices of nodes to be computed
 --
-generateEvaluatingCodes :: String -> LLVMMemMap -> (ExpressionMap, [Int]) -> AST.Definition--Module
+generateEvaluatingCodes :: -- ^ to generate code for the given expression
+                           String -- ^ Name of the function to be generated in LLVM
+                           -> LLVMMemMap -- ^ mapped node from memory
+                           -> (ExpressionMap, [Int])  -- ^ expression map and its indices
+                           -> AST.Definition -- ^ LLVM definition for the given expression
 generateEvaluatingCodes funcName memMap (mp, rootIds) =
   let
-    sortedVars = sort $ varNodesWithId mp
-    parameterMap = zip (map fst sortedVars) [0..]
+    sortedVars = sort $ varNodesWithId mp -- ^ Sorts variable names given in the expression
+    parameterMap = zip (map fst sortedVars) [0..] -- ^ Maps all sorted parameters/ variables with a index number
 
     -- | create a temporary variable out of the node id
-    -- mkTemp :: Int -> AST.Name
+    -- | mkTemp :: Int -> AST.Name
+    mkTemp :: Int        -- ^ Takes an integer (index of the node) as input
+              -> AST.Name -- ^ returns a variable name of "Name" Type in LLVM
     mkTemp n =
       case retrieveInternal n mp of
         ([],Var name) -> case lookup name parameterMap of
-                            Just idx -> mkName (name)
+                            Just idx -> mkName (name) -- ^ If the node is a variable, its name is used as the LLVM variable
                             _ -> error "variable name missing from parameterMap"
-        _ -> mkName ("t" ++ show n)
+        _ -> mkName ("t" ++ show n) -- ^ if the node is anything other than Var type, temporary variable name is generated.
+
     -- | mkTemp2 is for generating temporary variable names when there are more than 2 variables in an addition or multiplication operation
+    mkTemp2 :: Int  -- ^ Takes the index of node as input
+               -> Int -- ^ Takes the index of argument/ parameter as another input
+               -> AST.Name -- ^ Builds a temporary variable name in LLVM "Name" Type concatenating the above two inputs
     mkTemp2 n m = mkName ("s"++show n++"_"++show m)
 
     -- | callFun is used for generating LLVM code for all operations that uses CALL instruction
-    callFun :: String -> Int -> Int -> [Named AST.Instruction]
+    callFun :: String -- ^ name of the external function
+               -> Int -- ^ node id
+               -> Int -- ^ input parameter
+               -> [Named AST.Instruction] -- ^ generated LLVM Instruction for the given function
     callFun funName n arg = [mkTemp n AST.:= AST.Call  { tailCallKind = Nothing -- :: Maybe TailCallKind,
                                                            , callingConvention = CC.C -- :: CallingConvention, Found in IR construction Instruction.hs
                                                            , returnAttributes = [] -- :: [PA.ParameterAttribute],
@@ -146,76 +164,78 @@ generateEvaluatingCodes funcName memMap (mp, rootIds) =
                                                            } ]
 
     -- | arithFun is used for generating LLVM code for arithmetic operations like Add and Mul
-    arithFun :: (AST.FastMathFlags -> AST.Operand -> AST.Operand -> AST.InstructionMetadata -> AST.Instruction ) -> Int -> [Int] -> [Named AST.Instruction]
-    arithFun instr n [] = [ mkTemp n AST.:=  instr AST.noFastMathFlags
-                               (AST.ConstantOperand (C.Float $ LLVM.AST.Float.Double 0)) -- Check me - Type of var and const
+    arithFun :: (AST.FastMathFlags -- ^ Flags for arithmetic instructions in LLVM
+                 -> AST.Operand -- ^ First operand of the arithmetic instruction
+                 -> AST.Operand -- ^ Second operand of the arithmetic instruction
+                 -> AST.InstructionMetadata -- ^ Specifies Meta data of the instruction. Eg., it says if it is inline or not and so on.
+                 -> AST.Instruction ) -- ^ All the above inputs gives out this instruction
+                 -> Int -- ^ node id
+                 -> [Int] -- ^ list of input parameters
+                 -> [Named AST.Instruction] -- ^ generated LLVM instruction for the given arithmetic operation with the given parameters
+    arithFun instr n [] -- ^ for Zero arguments
+                        = [ mkTemp n AST.:=  instr AST.noFastMathFlags
+                               (AST.ConstantOperand (C.Float $ LLVM.AST.Float.Double 0))
                                (AST.ConstantOperand $ C.Float $ LLVM.AST.Float.Double 0)
                                []]
-    arithFun instr n (x:[]) = let argName = mkTemp x
+    arithFun instr n (x:[]) -- ^ For one argument
+                        = let argName = mkTemp x
                         in[ mkTemp n AST.:=  instr AST.noFastMathFlags
-                                     (AST.ConstantOperand (C.Float $ LLVM.AST.Float.Double 0)) -- Check me - Type of var and const
+                                     (AST.ConstantOperand (C.Float $ LLVM.AST.Float.Double 0))
                                      (AST.LocalReference elemType (argName))
                                      []]
-    arithFun instr n (x:y:[]) = let argName1 = mkTemp x
-                                    argName2 = mkTemp y
+    arithFun instr n (x:y:[]) -- ^ For two arguments
+                                = let argName1 = mkTemp x
+                                      argName2 = mkTemp y
                                 in[ mkTemp n AST.:=  instr AST.noFastMathFlags
-                                     (AST.LocalReference elemType (argName1)) -- Check me - Type of var and const
+                                     (AST.LocalReference elemType (argName1))
                                      (AST.LocalReference elemType (argName2))
                                      []]
-    arithFun instr n (x:y:xs) =
+    arithFun instr n (x:y:xs) = -- ^ For more than two arguments, recursive call is used
       let
         helper (w1:w2:[]) =[ mkTemp2 w1 w2 AST.:=  instr AST.noFastMathFlags
-                                      (AST.LocalReference elemType (mkTemp w1)) -- Check me - Type of var and const
+                                      (AST.LocalReference elemType (mkTemp w1))
                                       (AST.LocalReference elemType (mkTemp w2))
                                       []]
         helper (w1:w2:w3:ws) = helper (w2:ws)
                             ++ [ mkTemp2 w1 w2 AST.:=  instr AST.noFastMathFlags
-                                                                 (AST.LocalReference elemType (mkTemp w1)) -- Check me - Type of var and const
+                                                                 (AST.LocalReference elemType (mkTemp w1))
                                                                  (AST.LocalReference elemType (mkTemp2 w2 w3))
                                                                  []]
       in
         helper (y:xs)
         ++ ( [ mkTemp n AST.:= instr AST.noFastMathFlags
-                                              (AST.LocalReference elemType (mkTemp2 n y)) -- Check me - Type of var and const
+                                              (AST.LocalReference elemType (mkTemp2 n y))
                                               (AST.LocalReference elemType (mkTemp x))
                                               []] )
-    -- | defines the body of the LLVM module
-    body = BasicBlock
-       (Name "entry")
-       (concatMap genCode $ topologicalSortManyRoots (mp, rootIds))
-       (Do $ Ret (Just (LocalReference elemType (head $ map mkTemp rootIds))) [])
+
     -- | gets the dimension of the expressionMap
-    getShape :: Int -> Shape
+    getShape :: Int -- ^ Node id of the expression map
+                -> Shape -- ^ Dimension /shape of the expression map
     getShape nId = retrieveShape nId mp
+
     -- | generates LLVM Definition based on the node id obtained from the topological sort
-    genCode :: Int -> Code -- From node id to codes
+    genCode :: Int -- ^ Node id of the expression map
+               -> Code -- ^ generates corresponding LLVM instruction
     genCode n =
       let (shape, op) = retrieveInternal n mp
           elementType nId = retrieveElementType nId mp
       in case op of
-          Var nam -> let--varName = mkTemp nam
+          Var nam -> let --varName = mkTemp nam
                          parIdx = lookup nam parameterMap
                      in [] 
-           -- For scalars we dont allocate space for local variables. We use mkTemp to refer to the variable name directly.
-          DVar _ -> error "DVar should not be here"
+           -- ^ For scalars we dont allocate space for local variables. We use mkTemp to refer to the variable name directly.
+          DVar _ -> error "DVar not available for Scalars"
           Const val -> [ mkTemp n AST.:=   AST.FAdd AST.noFastMathFlags
                                               (AST.ConstantOperand (C.Float $ LLVM.AST.Float.Double 0)) -- Check me - Type of var and const
                                               (AST.ConstantOperand $ C.Float $ LLVM.AST.Float.Double val)
                                               []] --error "for i n [n `at` i <<- show val]"
           Sum _ args -> arithFun AST.FAdd n args
           Mul _ args -> arithFun AST.FMul n args
-          Power x arg  -> {-case x of
-                             2 -> arithFun AST.FMul n [arg,arg]
-                             1 -> arithFun AST.FAdd n [arg]
-                             0 -> Const 1
-                             (-1) ->
-                             _ -> error $ "error"-}
-            [mkTemp n AST.:= AST.Call  { tailCallKind = Nothing -- :: Maybe TailCallKind,
+          Power x arg  -> [mkTemp n AST.:= AST.Call  { tailCallKind = Nothing -- :: Maybe TailCallKind,
                                                       , callingConvention = CC.C -- :: CallingConvention, Found in IR construction Instruction.hs
                                                       , returnAttributes = [] -- :: [PA.ParameterAttribute],
                                                       , function = Right (AST.ConstantOperand $ C.GlobalReference funcType2 (mkName "llvm.pow.f64") ) -- :: CallableOperand,
                                                       , arguments = [(AST.LocalReference elemType $ mkTemp arg, []),(AST.ConstantOperand (C.Float $ LLVM.AST.Float.Double $ fromIntegral(x)),[])]
-                                                      --(AST.ConstantOperand (C.Float $ LLVM.AST.Float.Double $ fromIntegral(x)),[])] --  :: [(Operand, [PA.ParameterAttribute])],
                                                       , functionAttributes = [] -- :: [Either FA.GroupID FA.FunctionAttribute],
                                                       , metadata = [] -- :: InstructionMetadata
                                                       } ]
@@ -223,17 +243,16 @@ generateEvaluatingCodes funcName memMap (mp, rootIds) =
                        in [ mkTemp n AST.:= AST.FSub AST.noFastMathFlags
                                                   (AST.ConstantOperand (C.Float $ LLVM.AST.Float.Double 0))
                                                   (AST.LocalReference elemType (argName))
-                                     []]
-                   -- need to generate address, load, negate, address and store (and two temporary)
+                                     []]     -- need to generate address, load, negate, address and store (and two temporary) for non scalars
           Scale _ scalar arg -> error "Scale should not be here" -- Not relevant to scalar operations
-          -- MARK: only apply to R
+          -- MARK: only applicable to Real
           Div arg1 arg2  -> [ mkTemp n AST.:= AST.FDiv AST.noFastMathFlags
                                                    (AST.LocalReference elemType (mkTemp arg1))
                                                    (AST.LocalReference elemType (mkTemp arg2))
                                                    []]
                          --error "Div not implemented"
           Sqrt arg -> callFun "sqrt" n arg
-           --error "for i n [n `at` i <<- "sqrt" ++ arg `at` i]"
+                    --error "for i n [n `at` i <<- "sqrt" ++ arg `at` i]"
           Sin arg -> callFun "sin" n arg
                     --error "for i n [n `at` i <<- "sin" ++ arg `at` i]"
           Cos arg -> callFun "cos" n arg
@@ -263,28 +282,38 @@ generateEvaluatingCodes funcName memMap (mp, rootIds) =
           Atanh arg -> callFun "atanh" n arg
                       --error "for i n [n `at` i <<- "atanh" ++ arg `at` i]"
           -- MARK: Complex related. Not related to Scalar
-          RealImag arg1 arg2 -> error "RealImag should not be here"
-          RealPart arg -> error "RealPart should not be here"
-          ImagPart arg -> error "ImagPart should not be here"
-          InnerProd _ arg1 arg2 -> error "InnerProd should not be here"
-          Piecewise marks condition branches -> error "Piecewise should not be here"
-          Rotate [amount] arg -> error "Rotate 1D should not be here"
-          Rotate [amount1, amount2] arg -> error "Rotate 2D should not be here"
-          Rotate [amount1, amount2, amount3] arg -> error "Rotate 3D should not be here"
+          RealImag arg1 arg2 -> error "RealImag not applicable for scalars"
+          RealPart arg -> error "RealPart not applicable for scalars"
+          ImagPart arg -> error "ImagPart not applicable for scalars"
+          InnerProd _ arg1 arg2 -> error "InnerProd not applicable for scalars"
+          Piecewise marks condition branches -> error "Piecewise not applicable for scalars"
+          Rotate [amount] arg -> error "Rotate 1D not applicable for scalars"
+          Rotate [amount1, amount2] arg -> error "Rotate 2D not applicable for scalars"
+          Rotate [amount1, amount2, amount3] arg -> error "Rotate 3D not applicable for scalars"
+
+    -- | defines the body of the LLVM module
+    body = BasicBlock -- ^ body of the LLVM module
+           (Name "entry") -- ^ defines the entry of the LLVM Module
+           (concatMap genCode $ topologicalSortManyRoots (mp, rootIds)) -- ^ gets all expression, sort them, generates LLVM instructions as per the sorted node ids
+           (Do $ Ret (Just (LocalReference elemType (head $ map mkTemp rootIds))) []) -- ^ return variable
   in
-    GlobalDefinition functionDefaults
-       { name = mkName funcName
+    GlobalDefinition functionDefaults -- ^ Actual definition of LLVM Module
+       { name = mkName funcName -- Name of the function
        , parameters =
-           ( [ Parameter elemType (mkName name) [] | (name,_) <- sortedVars ]
+           ( [ Parameter elemType (mkName name) [] | (name,_) <- sortedVars ] -- ^ Input parameters which is sorted
            , False )
-       , returnType = elemType
-       , basicBlocks = [body]
+       , returnType = elemType -- ^ Return type of the module
+       , basicBlocks = [body] -- ^ calling Body of LLVM module
        }
 
 -- | defining type of functions
 funcType = ptr $ FunctionType elemType [elemType] False
 funcType2 = ptr $ FunctionType elemType [elemType,elemType] False
 
+-- | defining names in LLVM "Name" type based on its function call
+-- | nameDef -> String -> AST.Name
+nameDef :: String -- ^ Name of the external function in terms of string
+           -> AST.Name -- ^ Name of the external function in LLVM "Name" Type
 nameDef name = case name of
                           "sin" -> mkName $ "llvm."++name++".f64"
                           "cos" -> mkName $ "llvm."++name++".f64"
@@ -292,36 +321,38 @@ nameDef name = case name of
                           "exp" -> mkName $ "llvm."++name++".f64"
                           "pow" -> mkName $ "llvm."++name++".f64"
                           "sqrt" -> mkName $ "llvm."++name++".f64"
-                          "tan" -> mkName name
                           _ -> mkName name
 
 
 -- | @mkModule@ function for combining all generated LLVM Definitions to a single LLVM module
-mkModule :: String -> Expression d et -> AST.Module
-mkModule funcName exp = 
+-- | mkModule :: String -> Expression d et -> AST.Module
+mkModule :: String -- ^ name for the LLVM module to be generated
+            -> Expression d et  -- ^ Expression map
+            -> AST.Module -- ^ LLVM module that has all generated LLVM Definitions
+mkModule funcName exp =
   let 
     Expression topLevel exprMap  = exp 
     llvmMemMap = makeLLVMMemMap exprMap
   in 
-    defaultModule
-    { moduleName = "basic"
-    , moduleSourceFileName = "Main.hs"
-    , moduleDefinitions =  [ generateEvaluatingCodes funcName llvmMemMap (exprMap, [topLevel])]
-      ++ externals
+    defaultModule -- ^ has parameters for the default LLVM module
+    { moduleName = "basic" -- ^ describes the module id to be generated in LLVM code
+    , moduleSourceFileName = "Main.hs" -- ^ Describes the source file name from which LLVM code is generated
+    , moduleDefinitions =  [ generateEvaluatingCodes funcName llvmMemMap (exprMap, [topLevel])] -- ^ Complete LLVM module generation which calls generateEvaluatingCodes function with the expression map
+      ++ externals -- ^ External function call declarations in the LLVM program
     }
 
 -- | Declaration of all predefined functions used by LLVM definitions
-externals :: [AST.Definition]
+externals :: [AST.Definition] -- ^ List of LLVM Definitions
 externals =
   let
-    onePar = ([Parameter elemType (mkName "") []], False)
-    twoPar = ([Parameter elemType (mkName "") [], Parameter elemType (mkName "") []], False)
-    defn (name, attrs, par) = GlobalDefinition $ functionDefaults
-      { name       = nameDef name --mkName $ "llvm."++name++".f64"
-      , linkage    = External
-      , parameters = par
-      , returnType = elemType
-      , LLVM.AST.Global.functionAttributes = attrs
+    onePar = ([Parameter elemType (mkName "") []], False) -- ^ Parameter list for functions with one parameter
+    twoPar = ([Parameter elemType (mkName "") [], Parameter elemType (mkName "") []], False) -- ^ Parameter list for functions with two parameter
+    defn (name, attrs, par) = GlobalDefinition $ functionDefaults -- ^ External Function declaration
+      { name       = nameDef name -- ^ Name of the function
+      , linkage    = External -- ^ For external symbol references
+      , parameters = par -- ^ Parameter list
+      , returnType = elemType -- ^ Return type of the function
+      , LLVM.AST.Global.functionAttributes = attrs -- ^ Attributes of the function
       }
   in
     map defn
@@ -341,5 +372,34 @@ externals =
       , ("log",[Right FA.NoUnwind, Right FA.ReadNone, Right FA.Speculatable], onePar)
       , ("pow",[Right FA.NoUnwind, Right FA.ReadNone, Right FA.Speculatable], twoPar)
       , ("sqrt",[Right FA.NoUnwind, Right FA.ReadNone, Right FA.Speculatable], onePar)
-      ]
-  -- from IRBuilder.Module
+      ]  -- from IRBuilder.Module
+
+-- | Steps to execute
+-- 
+-- Go to the folder app in the HashedExpression
+-- 
+-- >>> stack ghci Main.hs
+--
+-- >>> Prelude> main
+--
+-- [LLVM Generated Code]
+--
+-- OR
+--
+-- Go to the project folder
+--
+-- >>> stack build
+--
+-- >>> stack run
+-- 
+-- [LLVM Generated code]
+-- 
+-- LLVM code is also found in the generated file specified in the Main.hs
+-- 
+-- To check the output with C file
+--
+-- >>> clang sampleMod.ll testMain.c -O3 -o test.exe
+--
+-- >>> ./test.exe
+--
+-- >>> 0.841471 [Some output based on the LLVM code and given input from C file] 

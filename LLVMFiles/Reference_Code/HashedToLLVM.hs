@@ -32,14 +32,13 @@ import Control.Monad.Except
 import Data.ByteString.Char8 as BS
 main :: IO ()
 main = do
-    -- Encode and represent expressions
     let x = HashedExpression.variable "x"
     let y = HashedExpression.variable "y"
-    let lcode = mkModule $ (x + y)
-    toLLVM lcode
+    let lcode1 = mkModule "test1" $ ( x + y )
+    toLLVM "Test3.ll" lcode1
 
-toLLVM :: LLVM.AST.Module -> IO ()
-toLLVM mod = withContext $ \ctx -> do
+toLLVM :: String -> LLVM.AST.Module -> IO ()
+toLLVM filename mod = withContext $ \ctx -> do
   llvm <- M.withModuleFromAST ctx mod M.moduleLLVMAssembly
   BS.putStrLn llvm
-  BS.writeFile "sampleMod.ll" llvm
+  BS.writeFile filename llvm
