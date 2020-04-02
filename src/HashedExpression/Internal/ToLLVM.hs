@@ -77,9 +77,9 @@ elemType :: AST.Type
 elemType = AST.FloatingPointType AST.DoubleFP
 
 -- | Every node entry in the memory has an Index, Type of entry which can be either Real or Complex and its dimension
-type LLVMMemMapEntry = (Int,      -- ^ node index, Type of node (Real or complex),
-                        EntryType,-- ^ Type of node (Real or complex),
-                        Shape)    -- ^ Dimension of the node (0 -[]: Scalar 1D - [n]: Array, 2D - [n,m]: Matrix . . . )
+type LLVMMemMapEntry = (Int,       --  node index, Type of node (Real or complex),
+                        EntryType, --  Type of node (Real or complex),
+                        Shape)     --  Dimension of the node (0 -[]: Scalar 1D - [n]: Array, 2D - [n,m]: Matrix . . . )
 
 -- | defines the EntryType which can either be Real or Complex
 data EntryType
@@ -122,15 +122,14 @@ mmUpdate exprMap (memMapSoFar, sizeSoFar) nId =
 
 -- | Generate evaluation code (usually an expression and its partial derivatives) given an ExpressionMap and indices of nodes to be computed
 --
-generateEvaluatingCodes :: -- ^ to generate code for the given expression
-                           String -- ^ Name of the function to be generated in LLVM
+generateEvaluatingCodes :: String -- ^ Name of the function to be generated in LLVM
                            -> LLVMMemMap -- ^ mapped node from memory
                            -> (ExpressionMap, [Int])  -- ^ expression map and its indices
                            -> AST.Definition -- ^ LLVM definition for the given expression
 generateEvaluatingCodes funcName memMap (mp, rootIds) =
   let
-    sortedVars = sort $ varNodesWithId mp -- ^ Sorts variable names given in the expression
-    parameterMap = zip (map fst sortedVars) [0..] -- ^ Maps all sorted parameters/ variables with a index number
+    sortedVars = sort $ varNodesWithId mp --  Sorts variable names given in the expression
+    parameterMap = zip (map fst sortedVars) [0..] --  Maps all sorted parameters/ variables with a index number
 
     -- | create a temporary variable out of the node id
     -- | mkTemp :: Int -> AST.Name
@@ -139,9 +138,9 @@ generateEvaluatingCodes funcName memMap (mp, rootIds) =
     mkTemp n =
       case retrieveInternal n mp of
         ([],Var name) -> case lookup name parameterMap of
-                            Just idx -> mkName (name) -- ^ If the node is a variable, its name is used as the LLVM variable
+                            Just idx -> mkName (name) --  If the node is a variable, its name is used as the LLVM variable
                             _ -> error "variable name missing from parameterMap"
-        _ -> mkName ("t" ++ show n) -- ^ if the node is anything other than Var type, temporary variable name is generated.
+        _ -> mkName ("t" ++ show n) --  if the node is anything other than Var type, temporary variable name is generated.
 
     -- | mkTemp2 is for generating temporary variable names when there are more than 2 variables in an addition or multiplication operation
     mkTemp2 :: Int  -- ^ Takes the index of node as input
@@ -164,33 +163,33 @@ generateEvaluatingCodes funcName memMap (mp, rootIds) =
                                                            } ]
 
     -- | arithFun is used for generating LLVM code for arithmetic operations like Add and Mul
-    arithFun :: (AST.FastMathFlags -- ^ Flags for arithmetic instructions in LLVM
-                 -> AST.Operand -- ^ First operand of the arithmetic instruction
-                 -> AST.Operand -- ^ Second operand of the arithmetic instruction
-                 -> AST.InstructionMetadata -- ^ Specifies Meta data of the instruction. Eg., it says if it is inline or not and so on.
+    arithFun :: (AST.FastMathFlags --  Flags for arithmetic instructions in LLVM
+                 -> AST.Operand --  First operand of the arithmetic instruction
+                 -> AST.Operand --  Second operand of the arithmetic instruction
+                 -> AST.InstructionMetadata --  Specifies Meta data of the instruction. Eg., it says if it is inline or not and so on.
                  -> AST.Instruction ) -- ^ All the above inputs gives out this instruction
                  -> Int -- ^ node id
                  -> [Int] -- ^ list of input parameters
                  -> [Named AST.Instruction] -- ^ generated LLVM instruction for the given arithmetic operation with the given parameters
-    arithFun instr n [] -- ^ for Zero arguments
+    arithFun instr n [] --  for Zero arguments
                         = [ mkTemp n AST.:=  instr AST.noFastMathFlags
                                (AST.ConstantOperand (C.Float $ LLVM.AST.Float.Double 0))
                                (AST.ConstantOperand $ C.Float $ LLVM.AST.Float.Double 0)
                                []]
-    arithFun instr n (x:[]) -- ^ For one argument
+    arithFun instr n (x:[]) --  For one argument
                         = let argName = mkTemp x
                         in[ mkTemp n AST.:=  instr AST.noFastMathFlags
                                      (AST.ConstantOperand (C.Float $ LLVM.AST.Float.Double 0))
                                      (AST.LocalReference elemType (argName))
                                      []]
-    arithFun instr n (x:y:[]) -- ^ For two arguments
+    arithFun instr n (x:y:[]) --  For two arguments
                                 = let argName1 = mkTemp x
                                       argName2 = mkTemp y
                                 in[ mkTemp n AST.:=  instr AST.noFastMathFlags
                                      (AST.LocalReference elemType (argName1))
                                      (AST.LocalReference elemType (argName2))
                                      []]
-    arithFun instr n (x:y:xs) = -- ^ For more than two arguments, recursive call is used
+    arithFun instr n (x:y:xs) = --  For more than two arguments, recursive call is used
       let
         helper (w1:w2:[]) =[ mkTemp2 w1 w2 AST.:=  instr AST.noFastMathFlags
                                       (AST.LocalReference elemType (mkTemp w1))
@@ -223,7 +222,7 @@ generateEvaluatingCodes funcName memMap (mp, rootIds) =
           Var nam -> let --varName = mkTemp nam
                          parIdx = lookup nam parameterMap
                      in [] 
-           -- ^ For scalars we dont allocate space for local variables. We use mkTemp to refer to the variable name directly.
+           --  For scalars we dont allocate space for local variables. We use mkTemp to refer to the variable name directly.
           DVar _ -> error "DVar not available for Scalars"
           Const val -> [ mkTemp n AST.:=   AST.FAdd AST.noFastMathFlags
                                               (AST.ConstantOperand (C.Float $ LLVM.AST.Float.Double 0)) -- Check me - Type of var and const
@@ -292,18 +291,18 @@ generateEvaluatingCodes funcName memMap (mp, rootIds) =
           Rotate [amount1, amount2, amount3] arg -> error "Rotate 3D not applicable for scalars"
 
     -- | defines the body of the LLVM module
-    body = BasicBlock -- ^ body of the LLVM module
-           (Name "entry") -- ^ defines the entry of the LLVM Module
-           (concatMap genCode $ topologicalSortManyRoots (mp, rootIds)) -- ^ gets all expression, sort them, generates LLVM instructions as per the sorted node ids
-           (Do $ Ret (Just (LocalReference elemType (head $ map mkTemp rootIds))) []) -- ^ return variable
+    body = BasicBlock --  body of the LLVM module
+           (Name "entry") --  defines the entry of the LLVM Module
+           (concatMap genCode $ topologicalSortManyRoots (mp, rootIds)) --  gets all expression, sort them, generates LLVM instructions as per the sorted node ids
+           (Do $ Ret (Just (LocalReference elemType (head $ map mkTemp rootIds))) []) --  return variable
   in
-    GlobalDefinition functionDefaults -- ^ Actual definition of LLVM Module
+    GlobalDefinition functionDefaults --  Actual definition of LLVM Module
        { name = mkName funcName -- Name of the function
        , parameters =
-           ( [ Parameter elemType (mkName name) [] | (name,_) <- sortedVars ] -- ^ Input parameters which is sorted
+           ( [ Parameter elemType (mkName name) [] | (name,_) <- sortedVars ] --  Input parameters which is sorted
            , False )
-       , returnType = elemType -- ^ Return type of the module
-       , basicBlocks = [body] -- ^ calling Body of LLVM module
+       , returnType = elemType --  Return type of the module
+       , basicBlocks = [body] --  calling Body of LLVM module
        }
 
 -- | defining type of functions
@@ -334,25 +333,25 @@ mkModule funcName exp =
     Expression topLevel exprMap  = exp 
     llvmMemMap = makeLLVMMemMap exprMap
   in 
-    defaultModule -- ^ has parameters for the default LLVM module
-    { moduleName = "basic" -- ^ describes the module id to be generated in LLVM code
-    , moduleSourceFileName = "Main.hs" -- ^ Describes the source file name from which LLVM code is generated
-    , moduleDefinitions =  [ generateEvaluatingCodes funcName llvmMemMap (exprMap, [topLevel])] -- ^ Complete LLVM module generation which calls generateEvaluatingCodes function with the expression map
-      ++ externals -- ^ External function call declarations in the LLVM program
+    defaultModule --  has parameters for the default LLVM module
+    { moduleName = "basic" --  describes the module id to be generated in LLVM code
+    , moduleSourceFileName = "Main.hs" --  Describes the source file name from which LLVM code is generated
+    , moduleDefinitions =  [ generateEvaluatingCodes funcName llvmMemMap (exprMap, [topLevel])] --  Complete LLVM module generation which calls generateEvaluatingCodes function with the expression map
+      ++ externals --  External function call declarations in the LLVM program
     }
 
 -- | Declaration of all predefined functions used by LLVM definitions
 externals :: [AST.Definition] -- ^ List of LLVM Definitions
 externals =
   let
-    onePar = ([Parameter elemType (mkName "") []], False) -- ^ Parameter list for functions with one parameter
-    twoPar = ([Parameter elemType (mkName "") [], Parameter elemType (mkName "") []], False) -- ^ Parameter list for functions with two parameter
-    defn (name, attrs, par) = GlobalDefinition $ functionDefaults -- ^ External Function declaration
-      { name       = nameDef name -- ^ Name of the function
-      , linkage    = External -- ^ For external symbol references
-      , parameters = par -- ^ Parameter list
-      , returnType = elemType -- ^ Return type of the function
-      , LLVM.AST.Global.functionAttributes = attrs -- ^ Attributes of the function
+    onePar = ([Parameter elemType (mkName "") []], False) --  Parameter list for functions with one parameter
+    twoPar = ([Parameter elemType (mkName "") [], Parameter elemType (mkName "") []], False) --  Parameter list for functions with two parameter
+    defn (name, attrs, par) = GlobalDefinition $ functionDefaults --  External Function declaration
+      { name       = nameDef name --  Name of the function
+      , linkage    = External --  For external symbol references
+      , parameters = par --  Parameter list
+      , returnType = elemType -- Return type of the function
+      , LLVM.AST.Global.functionAttributes = attrs -- Attributes of the function
       }
   in
     map defn
