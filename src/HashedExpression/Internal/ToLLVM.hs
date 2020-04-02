@@ -242,7 +242,7 @@ generateEvaluatingCodes funcName memMap (mp, rootIds) =
           Var nam -> let --varName = mkTemp nam
                          parIdx = lookup nam parameterMap
                      in [] 
-           --  For scalars we dont allocate space for local variables. We use mkTemp to refer to the variable name directly.
+           --  For scalars we dont allocate space for local variables. We use mkTemp to refer to the variable name directly. For allocating calloc(sizeof(double),number) should be used.
           DVar _ -> error "DVar not available for Scalars"
           Const val -> [ mkTemp n AST.:=   AST.FAdd AST.noFastMathFlags
                                               (AST.ConstantOperand (C.Float $ LLVM.AST.Float.Double 0)) -- Check me - Type of var and const
@@ -329,7 +329,7 @@ generateEvaluatingCodes funcName memMap (mp, rootIds) =
 funcType = ptr $ FunctionType elemType [elemType] False
 funcType2 = ptr $ FunctionType elemType [elemType,elemType] False
 
--- | defining names in LLVM "Name" type based on its function call
+-- | Function to generate LLVM IR to declare the signature of an external function.
 -- | nameDef -> String -> AST.Name
 nameDef :: String -- ^ Name of the external function in terms of string
            -> AST.Name -- ^ Name of the external function in LLVM "Name" Type
@@ -346,7 +346,7 @@ nameDef name = case name of
 -- | @mkModule@ function for combining all generated LLVM Definitions to a single LLVM module
 -- | mkModule :: String -> Expression d et -> AST.Module
 mkModule :: String -- ^ name for the LLVM module to be generated
-            -> Expression d et  -- ^ Expression map
+            -> Expression d et  -- ^ It is the node id for the final expression. `d` is the expressionID and `et` is the expressionMap
             -> AST.Module -- ^ LLVM module that has all generated LLVM Definitions
 mkModule funcName exp =
   let 
@@ -360,7 +360,7 @@ mkModule funcName exp =
       ++ externals --  External function call declarations in the LLVM program
     }
 
--- | Declaration of all predefined functions used by LLVM definitions
+-- | Declaration of all functions used from the built-in math library.
 externals :: [AST.Definition] -- ^ List of LLVM Definitions
 externals =
   let
