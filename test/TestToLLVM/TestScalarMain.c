@@ -283,9 +283,9 @@ int test(int n, double a, double b, double c)
     break;
     }
  case 18:{
+    a-=0.1;
     resultVal = test18(a);
     trueVal = atanh(a);
-    a-=0.1;
     break;
     }          //default: printf("Unknown selection\n");
  case 19:{

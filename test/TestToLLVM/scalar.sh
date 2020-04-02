@@ -12,3 +12,5 @@ clang Test1.ll Test2.ll Test3.ll Test4.ll Test5.ll Test6.ll Test7.ll Test8.ll Te
 # Run the TestScalar.exe to verify the output from llvm function.
 ./TestScalar.exe
 #rm *.exe Test*.ll *.o *.hi
+echo "Time taken for running the test:"
+times
