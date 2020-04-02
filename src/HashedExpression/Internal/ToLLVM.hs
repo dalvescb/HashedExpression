@@ -10,22 +10,22 @@ Stability   : experimental
 Portability : POSIX
 
 This module has the following functions,
- __/LLVMMemMap/__ - is used to allocate memory for all nodes 
- 
+ __/LLVMMemMap/__ - is used to allocate memory for all nodes
+
  __/GenerateEvaluatingCodes/__ - is used to generate LLVM Definition for every operation
- 
+
 __/mkModule/__ - is used to bind all generated LLVM Definitions to a single LLVM module
 
  __/Externals/__ - is used to declare all inbuilt functions in LLVM and other helper functions for the above functions.
- 
- The two main functions for generating the LLVM IR evaluation functions from an Expression are makeMemoryMap and generateEvaluatingCode. 
-  
- The makeLLVMMemoryMap function allocates memory for all subexpressions. Expression is a DAG (Directed Acyclic Graph) of subexpressions which is stored in a hash map. Every node contains an operation, references to inputs and its dimensions, and whether it is real or complex. The makeLLVMMemoryMap function gets the list of nodes, calculates its size based on the shape obtained from the Expression map and lays them out linearly. This is implemented with a fold operation. The value accumulated by the fold is a pair of the total size and an IntMap mapping the node id to the offset in the allocated memory. 
-  
+
+ The two main functions for generating the LLVM IR evaluation functions from an Expression are makeMemoryMap and generateEvaluatingCode.
+
+ The makeLLVMMemoryMap function allocates memory for all subexpressions. Expression is a DAG (Directed Acyclic Graph) of subexpressions which is stored in a hash map. Every node contains an operation, references to inputs and its dimensions, and whether it is real or complex. The makeLLVMMemoryMap function gets the list of nodes, calculates its size based on the shape obtained from the Expression map and lays them out linearly. This is implemented with a fold operation. The value accumulated by the fold is a pair of the total size and an IntMap mapping the node id to the offset in the allocated memory.
+
  The generateEvaluatingCode function is used to generate the evaluation function for the given expression.  The code is generated one subexpression at a time.
-  
+
  Since the subexpression is a DAG, there is an ordering of the nodes in which inputs occur before subexpressions which use them.  Say for instance, in the expression 2x + 2y, the subexpressions can be calculated in the order 2x,2y,2x + 2y, but 2x + 2y could not calculated before 2*y, because it needs it as an input.  This type of order is called a topological order, and is implemented in topologicalSortManyRoots.  Many roots means that it can be used to evaluate multiple expressions with shared subexpressions.
-  
+
  Code generation is implemented by taking the sorting keys and mapping an evaluation function over the list of keys.  The evaluation function matches the operation to LLVM IR instructions.
 
  __NOTE__: The test suite for this module is available at test/TestToLLVM/ directory. Please go through the README.md file in this directory for running the test cases.
@@ -41,6 +41,9 @@ module HashedExpression.Internal.ToLLVM
       , generateEvaluatingCodes
       , mmUpdate
       , externals
+      , elemType
+      , funcType
+      , nameDef
   ) where 
 
 import Data.Array
