@@ -32,6 +32,8 @@ double test28(double a, double b, double c);
 double test29(double a, double b);
 double test30(double a, double b);
 double test31(double a, double b, double c);
+double test32(double a);
+double test33(double a, double b);
 int test(int,double,double,double);
 int main()
 {
@@ -160,6 +162,14 @@ int main()
 
   printf("%f + %f ^ %f = %f\n",af,cf,bf,test31(af,cf,bf));
   ret=test(31,af,cf,bf);
+  ret?pass++:fail++;
+
+  printf("neg(neg %f) = %f\n",cf,test32(cf));
+  ret=test(32,cf,0,0);
+  ret?pass++:fail++;
+
+  printf("%f + neg %f = %f\n",af,bf,test33(af,bf));
+  ret=test(33,af,bf,0);
   ret?pass++:fail++;
 
   printf("Total number of passed cases: %d\n",pass);
@@ -380,6 +390,17 @@ int test(int n, double a, double b, double c)
      resultVal = test31(a,b,c);
      //double d = a+b;
      trueVal = pow((a+b),c);
+     a++;
+     b++;
+     break;
+  }case 32:{
+     resultVal = test32(a);
+     trueVal = (-(-a));
+     a++;
+     break;
+  }case 33:{
+     resultVal = test33(a,b);
+     trueVal = a+(-b);
      a++;
      b++;
      break;

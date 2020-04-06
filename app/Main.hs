@@ -35,11 +35,24 @@ main = do
     -- Encode and represent expressions
     let x = HashedExpression.variable "x"
     let y = HashedExpression.variable "y"
-    let lcode1 = mkModule "test1" $ ( x + y )
+    let x1 = HashedExpression.variable "x1"
+    let x2 = HashedExpression.variable "x2"
+    let x3 = HashedExpression.variable "x3"
+    let x4 = HashedExpression.variable "x4"
+    let x5 = HashedExpression.variable "x5"
+    let x6 = HashedExpression.variable "x6"
+    let x7 = HashedExpression.variable "x7"
+    let x8 = HashedExpression.variable "x8"
+    let x9 = HashedExpression.variable "x9"
+    let x0 = HashedExpression.variable "x0"
+    let lcode1 =  x0 + x1 + x2 + x3 + x4 + x5 + x6 + x7 + x8 + x9 
+    let lcode2 =  x0 * x1 * x2 * x3 * x4 * x5 * x6 * x7 *  x8 * x9 
+    let lcode3 = lcode2 - lcode1 + x0 / (x + y) 
+    let lcode4 = mkModule "test1.ll" $ lcode3 HashedExpression.^ 2
     --let z = constant 1
     --let lcode2 = mkModule "test2" $  x HashedExpression.Internal.Expression.^ 2
     --let lcode3 = mkModule "test3" $ tan z
-    toLLVM "Test3.ll" lcode1
+    toLLVM "Test1.ll" lcode4
      
 toLLVM :: String -> LLVM.AST.Module -> IO ()
 toLLVM filename mod = withContext $ \ctx -> do

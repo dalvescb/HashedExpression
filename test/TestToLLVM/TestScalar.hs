@@ -101,6 +101,10 @@ main = do
     toLLVM "Test30.ll" lcode30
     let lcode31 = mkModule "test31" $ ((x + y) HashedExpression.^ 2)
     toLLVM "Test31.ll" lcode31
+    let lcode32 = mkModule "test32" $ (negate (negate x))
+    toLLVM "Test32.ll" lcode32
+    let lcode33 = mkModule "test33" $ (x + (negate y))
+    toLLVM "Test33.ll" lcode33
     
    
 toLLVM :: String -> LLVM.AST.Module -> IO ()
