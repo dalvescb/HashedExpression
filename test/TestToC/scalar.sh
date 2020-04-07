@@ -1,6 +1,7 @@
 #!/bin/zsh
 #
 #
+start_time=`date +%s`
 
 clang Test1.c
 ./a.out
@@ -101,5 +102,8 @@ clang Test32.c
 clang Test33.c
 ./a.out
 
-echo "\n Time taken for running the test:"
-times
+end_time=`date +%s`
+echo execution time was `expr $end_time - $start_time` s.
+
+#echo "\n Time taken for running the test:"
+#times

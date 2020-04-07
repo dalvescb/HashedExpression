@@ -363,13 +363,13 @@ int test(int n, double a, double b, double c)
   }case 28:{
      resultVal = test28(a,b,c);
      trueVal = a / b / c;
-     printf("R:%f T:%f\n",resultVal,trueVal);
-     if (fabs(resultVal-trueVal)<1e-10)
+     //printf("R:%f T:%f\n",resultVal,trueVal);
+     /*if (fabs(resultVal-trueVal)<1e-10)
      {printf("Pass\n");
      }
      else{ printf("Fail:%f\n",resultVal-trueVal);
      }
-
+     */
      a++;
      b++;
      c++;

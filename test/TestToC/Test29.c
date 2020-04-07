@@ -8,6 +8,6 @@ int main(){
   (ptr[1]) = 15.0;
   (ptr[3]) = sin(ptr[0]);
   (ptr[2]) = (ptr[1]) + (ptr[3]);
-  printf("%f ",(ptr[2]));
+  //printf("%f ",(ptr[2]));
   free(ptr);
 }

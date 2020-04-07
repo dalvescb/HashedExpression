@@ -7,6 +7,6 @@ int main(){
   (ptr[0]) = 1.0;
   (ptr[1]) = -(ptr[0]);
   (ptr[2]) = -(ptr[1]);
-  printf("%f ",(ptr[2]));
+  //printf("%f ",(ptr[2]));
   free(ptr);
 }

@@ -10,6 +10,6 @@ int main(){
   (ptr[4]) = (ptr[1]) * (ptr[2]);
   (ptr[5]) = pow((ptr[0]),-1);
   (ptr[3]) = (ptr[4]) * (ptr[5]);
-  printf("%f ",(ptr[3]));
+  //printf("%f ",(ptr[3]));
   free(ptr);
 }

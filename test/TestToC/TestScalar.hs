@@ -104,21 +104,3 @@ main = do
    writeFile "Test33.c" cCode33
 
 
-{-  
-       let lcode24 = mkModule "test24" $ (w * x + y)
-       toLLVM "Test24.ll" lcode24
-       let lcode25 = mkModule "test25" $ (w + x / y)
-       toLLVM "Test25.ll" lcode25
-       let lcode26 = mkModule "test26" $ (w * x / y)
-       toLLVM "Test26.ll" lcode26
-       let lcode27 = mkModule "test27" $ (w * x * y)
-       toLLVM "Test27.ll" lcode27
-       let lcode28 = mkModule "test28" $ (w / x / y)
-       toLLVM "Test28.ll" lcode28
-       let lcode29 = mkModule "test29" $ (x + sin(y))
-       toLLVM "Test29.ll" lcode29
-       let lcode30 = mkModule "test30" $ (sin(x) - cos(y))
-       toLLVM "Test30.ll" lcode30
-       let lcode31 = mkModule "test31" $ ((x + y) HashedExpression.^ 2)
-       toLLVM "Test31.ll" lcode31
--}

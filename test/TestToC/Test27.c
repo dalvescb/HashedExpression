@@ -9,6 +9,6 @@ int main(){
   (ptr[2]) = 3.0;
   (ptr[3]) = (ptr[1]) * (ptr[2]);
   (ptr[4]) = (ptr[3]) * (ptr[0]);
-  printf("%f ",(ptr[4]));
+  //printf("%f ",(ptr[4]));
   free(ptr);
 }

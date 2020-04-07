@@ -9,6 +9,6 @@ int main(){
   (ptr[4]) = cos(ptr[0]);
   (ptr[2]) = -(ptr[4]);
   (ptr[1]) = (ptr[3]) + (ptr[2]);
-  printf("%f ",(ptr[1]));
+  //printf("%f ",(ptr[1]));
   free(ptr);
 }

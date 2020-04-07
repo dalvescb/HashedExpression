@@ -7,5 +7,5 @@ int main(){
   (ptr[0]) = 1.0;
   (ptr[1]) = sin(ptr[0]);
   printf("%f ",(ptr[1]));
-  free(ptr);
+  //free(ptr);
 }
