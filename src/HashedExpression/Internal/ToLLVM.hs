@@ -356,6 +356,7 @@ mkModule funcName exp =
     defaultModule --  has parameters for the default LLVM module
     { moduleName = "basic" --  describes the module id to be generated in LLVM code
     , moduleSourceFileName = "Main.hs" --  Describes the source file name from which LLVM code is generated
+    , moduleTargetTriple = Just "x86_64-apple-macosx10.15.0"
     , moduleDefinitions =  [ generateEvaluatingCodes funcName llvmMemMap (exprMap, [topLevel])] --  Complete LLVM module generation which calls generateEvaluatingCodes function with the expression map
       ++ externals --  External function call declarations in the LLVM program
     }

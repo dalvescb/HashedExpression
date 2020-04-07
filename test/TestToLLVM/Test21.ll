@@ -1,5 +1,6 @@
 ; ModuleID = 'basic'
 source_filename = "Main.hs"
+target triple = "x86_64-apple-macosx10.15.0"
 
 define double @test21(double %x) {
 entry:

@@ -533,15 +533,15 @@ generateAssignValueCodes valMaps memMap mp = concatMap codesForVar vars
 -- | Generate a fully working C program that compute the expression and print out the result
 --
 singleExpressionCProgram ::
-       (DimensionType d, NumType et) => ValMaps -> Expression d et -> Code
-singleExpressionCProgram valMaps expr =
+       (DimensionType d, NumType et) => String -> ValMaps -> Expression d et -> Code
+singleExpressionCProgram name valMaps expr =
     [ "#include <math.h>" --
     , "#include <stdio.h>"
     , "#include <stdlib.h>"
     , if containsFTNode $ exMap expr
           then fftUtils
           else ""
-    , "int main(){" --
+    , "void "++name++ "(){" --
     ] ++
     space 2 (initMemory ++ assignVals ++ codes ++ printValue ++ releaseMemory) ++
     [ "}" --

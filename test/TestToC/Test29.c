@@ -2,12 +2,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-int main(){
+void test29(){
   double *ptr = malloc(sizeof(double) * 4);
   (ptr[0]) = 1.0;
   (ptr[1]) = 15.0;
   (ptr[3]) = sin(ptr[0]);
   (ptr[2]) = (ptr[1]) + (ptr[3]);
-  //printf("%f ",(ptr[2]));
+  printf("%f ",(ptr[2]));
   free(ptr);
 }

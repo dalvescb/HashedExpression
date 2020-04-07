@@ -2,10 +2,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-int main(){
+void test18(){
   double *ptr = malloc(sizeof(double) * 2);
   (ptr[0]) = 1.0;
   (ptr[1]) = atanh(ptr[0]);
-  //printf("%f ",(ptr[1]));
+  printf("%f ",(ptr[1]));
   free(ptr);
 }
