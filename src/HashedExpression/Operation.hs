@@ -16,11 +16,22 @@ import HashedExpression.Internal.Node
 import HashedExpression.Internal.Utils
 import Prelude hiding ((^))
 
+-- | This is for performing operations on expressions, as well as defining values and variables
+
+
 instance (DimensionType d, NumType et) => PowerOp (Expression d et) Int where
+  -- | This is the power method
+  --   @
+  --     x ^ 0
+  --   @
   (^) :: Expression d et -> Int -> Expression d et
   (^) e1 x = applyUnary (unary (Power x) `hasShape` expressionShape e1) e1
 
 -------------------------------------------------------------------------------
+-- | Converts a double-precision floating-point number to a real-number expression with dimension constraint `d`
+--     @
+--     (fromDouble 15) :: Expression Scalar R
+--     @
 fromDouble :: forall d. ToShape d => Double -> (Expression d R)
 fromDouble value = Expression h (fromList [(h, node)])
   where
@@ -28,37 +39,67 @@ fromDouble value = Expression h (fromList [(h, node)])
     h = hash node
 
 -------------------------------------------------------------------------------
+-- | Basic operations on Num class expressions with dimension constraint `d`
 instance ToShape d => Num (Expression d R) where
-  e1 + e2 =
+  -- TODO Tensor discussion, how do we comment this below with mathematical rigour?
+  -- | Operate on two expressions iff they have the same dimension
+  --    @
+  --    let e1 = (fromInteger 11) :: Expression Scalar R
+  --    let e2 = (fromInteger 12) :: Expression Scalar R
+  --    e1 `binary operator` e2
+  --    `unary operator` e1  
+  --    @
+  
+  -- | Overload operators and define common transformations
+  e1 + e2 = -- | Sum two expressions iff they have the same dimension   
     let op = naryET Sum ElementDefault `hasShape` expressionShape e1
-     in ensureSameShape e1 e2 $ applyBinary op e1 e2
-  e1 * e2 =
+     in ensureSameShape e1 e2 $ applyBinary op e1 e2  
+  e1 * e2 = -- | Multiply two expressions iff they have the same dimension
     let op = naryET Mul ElementDefault `hasShape` expressionShape e1
-     in ensureSameShape e1 e2 $ applyBinary op e1 e2
-  negate =
+     in ensureSameShape e1 e2 $ applyBinary op e1 e2  
+  negate = -- | Unary minus applied to an expression 
     let op = unaryET Neg ElementDefault
-     in applyUnary $ unaryET Neg ElementDefault
-  fromInteger val = fromDouble $ fromIntegral val
-  abs = error "TODO: abs"
+     in applyUnary $ unaryET Neg ElementDefault   
+  fromInteger val = fromDouble $ fromIntegral val -- | Integer to real-number expression  
+  abs = error "TODO: abs" -- | Absolute value of expression  
   signum = error "Not applicable to tensor"
 
 -------------------------------------------------------------------------------
+-- | Define division operation and representation for real-number fractional expressions with dimension constraint `d`
 instance ToShape d => Fractional (Expression d R) where
-  e1 / e2 = ensureSameShape e1 e2 $ e1 * e2 ^ (-1)
-  fromRational r = fromDouble $ fromRational r
+  -- TODO e2 can be a 0-equivalent valued expression
+  --    @
+  --    let e1 = (fromRational 11) :: Expression Scalar R
+  --    let e2 = (fromRational 12) :: Expression Scalar R
+  --    e1 / e2
+  --    @    
+  
+  -- | Overload operators and define common transformations  
+  e1 / e2 = ensureSameShape e1 e2 $ e1 * e2 ^ (-1) -- | Divide two compatible expressions of dimension `d`  
+  fromRational r = fromDouble $ fromRational r -- | Rational number to Fractional expression
 
 -------------------------------------------------------------------------------
+-- | Represent common functions for real-number floating-point expressions with dimension constraint `d`
 instance ToShape d => Floating (Expression d R) where
-  pi = fromDouble $ pi
-  sqrt = applyUnary (unary Sqrt)
-  exp = applyUnary (unary Exp)
-  log = applyUnary (unary Log)
-  sin = applyUnary (unary Sin)
+  -- TODO: Going outside domain not undefined or complex (sqrt, log, etc.) but rather Expression Scalar R... intentional?
+  --    @
+  --    let val = (fromDouble 1.2345) :: Expression Scalar R
+  --    `function` val
+  --    @
+  
+  -- | Overload standard functions and fi
+  pi = fromDouble $ pi             -- | Constant pi overloaded into Expression type  
+  sqrt = applyUnary (unary Sqrt)   -- | Square root 
+  exp = applyUnary (unary Exp)     -- | Exponential function, e^x
+  log = applyUnary (unary Log)     -- | Natural logarithm
+  -- | Trignometric functions
+  sin = applyUnary (unary Sin)     
   cos = applyUnary (unary Cos)
   tan = applyUnary (unary Tan)
   asin = applyUnary (unary Asin)
   acos = applyUnary (unary Acos)
   atan = applyUnary (unary Atan)
+  -- | Hyperbolic trig functions
   sinh = applyUnary (unary Sinh)
   cosh = applyUnary (unary Cosh)
   tanh = applyUnary (unary Tanh)
@@ -67,24 +108,36 @@ instance ToShape d => Floating (Expression d R) where
   atanh = applyUnary (unary Atanh)
 
 -------------------------------------------------------------------------------
+-- | Basic operations on complex-number expressions with dimension constraint `d`
 instance ToShape d => Num (Expression d C) where
-  e1 + e2 =
+  -- TODO: Tensor discussion, how do we comment this below with mathematical rigour?
+  -- @
+  -- let e1 = ((fromDouble 10) +: fromIntegral 1) :: Expression Scalar C
+  -- let e2 = ((fromDouble 15) +: fromIntegral 3) :: Expression Scalar C
+  -- e1 `binary operation` e2
+  -- `unary operation` e1
+  
+  -- | Overload operators and define common transformations
+  e1 + e2 = -- | Sum two complex expressions iff they have the same dimension
     let op = naryET Sum ElementDefault `hasShape` expressionShape e1
      in ensureSameShape e1 e2 $ applyBinary op e1 e2
-  e1 * e2 =
+  e1 * e2 = -- | Multiply two complex expressions iff they have the same dimension
     let op = naryET Mul ElementDefault `hasShape` expressionShape e1
      in ensureSameShape e1 e2 $ applyBinary op e1 e2
-  negate =
+  negate = -- | Unary minus application to a complex expression
     let op = unaryET Neg ElementDefault
-     in applyUnary $ unaryET Neg ElementDefault
-  fromInteger val = fromIntegral val +: fromIntegral 0
-  abs = error "TODO: abs"
+     in applyUnary $ unaryET Neg ElementDefault  
+  fromInteger val = fromIntegral val +: fromIntegral 0 -- | Integer as real part of expression, with 0i imaginary part 
+  abs = error "TODO: abs" -- | Modulus of complex expression  
   signum = error "Not applicable to tensor"
 
 -------------------------------------------------------------------------------
+-- | Define division operation and transformation to complex fractional expression from rational real number with dimension constraint `d`
 instance ToShape d => Fractional (Expression d C) where
-  e1 / e2 = ensureSameShape e1 e2 $ e1 * e2 ^ (-1)
-  fromRational r = (fromDouble $ fromRational r) +: fromIntegral 0
+  -- TODO Complex division by 0?
+ 
+  e1 / e2 = ensureSameShape e1 e2 $ e1 * e2 ^ (-1) -- | Complex division overloading for expressions e1 and e2
+  fromRational r = (fromDouble $ fromRational r) +: fromIntegral 0   -- | Rational real number to complex expression with fractional real part and 0i imaginary part  
 
 -------------------------------------------------------------------------------
 instance ToShape d => Num (Expression d Covector) where
@@ -241,7 +294,7 @@ variable name = Expression h (fromList [(h, node)])
 variable1D ::
   forall n.
   (KnownNat n) =>
-  String ->
+  String -> 
   Expression n R
 variable1D name = Expression h (fromList [(h, node)])
   where
