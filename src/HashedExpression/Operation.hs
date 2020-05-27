@@ -16,7 +16,11 @@ import HashedExpression.Internal.Node
 import HashedExpression.Internal.Utils
 import Prelude hiding ((^))
 
--- | This module overloads and redefines operations to use with expressions, defining additional operations as necessary as well as providing the means to create multidimensional constants and variables
+{- 
+ This module overloads and redefines operations to use with expressions,
+ defining additional operations as necessary as well as providing the means
+ to create multidimensional constants and variables 
+-}
 
   --    @
   --      x ^ 0
@@ -79,7 +83,8 @@ instance ToShape d => Fractional (Expression d R) where
 -------------------------------------------------------------------------------
 -- | Represent common functions for real-number floating-point expressions with dimension constraint `d`
 instance ToShape d => Floating (Expression d R) where
-  -- TODO: Going outside domain not undefined or complex (sqrt, log, etc.) but rather Expression Scalar R... intentional?
+  -- TODO: Going outside domain not undefined or complex (sqrt, log, etc.) 
+  --       but rather Expression Scalar R... intentional?
   --    @
   --    let val = (fromDouble 1.2345) :: Expression Scalar R
   --    `function` val
@@ -126,7 +131,10 @@ instance ToShape d => Num (Expression d C) where
   negate = -- | Unary minus application to a complex expression
     let op = unaryET Neg ElementDefault
      in applyUnary $ unaryET Neg ElementDefault
-  fromInteger val = fromIntegral val +: fromIntegral 0 -- | Transformation to complex expression with val as real part, amd 0i imaginary part 
+   -- | Transformation to complex expression with val as real part,
+   --   and 0i imaginary part 
+  fromInteger val = fromIntegral val +: fromIntegral 0 
+  
   abs = error "TODO: abs" -- | Absolute value of expression 
   signum = error "Not applicable to tensor"
 
@@ -140,8 +148,11 @@ instance ToShape d => Fractional (Expression d C) where
   -- e1 / e2  
   -- @  
   
-  e1 / e2 = ensureSameShape e1 e2 $ e1 * e2 ^ (-1) -- | Complex division overloading for expressions e1 and e2
-  fromRational r = (fromDouble $ fromRational r) +: fromIntegral 0 -- | Rational real number to complex expression with fractional real part and 0i imaginary part  
+  -- | Complex division overloading for expressions e1 and e2
+  e1 / e2 = ensureSameShape e1 e2 $ e1 * e2 ^ (-1) 
+  -- | Rational real number to complex expression with fractional real part
+  --   and 0i imaginary part 
+  fromRational r = (fromDouble $ fromRational r) +: fromIntegral 0  
 
 -------------------------------------------------------------------------------
 -- | Basic operations on covector expressions with dimension constraint `d`
