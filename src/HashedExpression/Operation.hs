@@ -114,12 +114,12 @@ instance ToShape d => Floating (Expression d R) where
 -- | Basic operations on complex-number expressions with dimension constraint `d`
 instance ToShape d => Num (Expression d C) where
   -- TODO: Tensor discussion, how do we comment this below with mathematical rigour?
-  -- @
-  -- let e1 = ((fromDouble 10) +: fromIntegral 1) :: Expression Scalar C
-  -- let e2 = ((fromDouble 15) +: fromIntegral 3) :: Expression Scalar C
-  -- e1 `binary operation` e2
-  -- `unary operation` e1
-  -- @
+  --     @
+  --     let e1 = ((fromDouble 10) +: fromIntegral 1) :: Expression Scalar C
+  --     let e2 = ((fromDouble 15) +: fromIntegral 3) :: Expression Scalar C
+  --     e1 `binary operation` e2
+  --     `unary operation` e1
+  --     @
   
   -- | Overload operators and define common transformations
   e1 + e2 = -- | Sum two complex expressions iff they have the same dimension
@@ -142,11 +142,11 @@ instance ToShape d => Num (Expression d C) where
 -- | Define division operation and transformation to complex fractional expression from rational real number with dimension constraint `d`
 instance ToShape d => Fractional (Expression d C) where
   -- TODO Complex division by 0?
-  -- @
-  -- let e1 = ((fromRational 10) +: fromIntegral 1) :: Expression Scalar C
-  -- let e2 = ((fromRational 15) +: fromIntegral 3) :: Expression Scalar C
-  -- e1 / e2  
-  -- @  
+  --     @
+  --     let e1 = ((fromRational 10) +: fromIntegral 1) :: Expression Scalar C
+  --     let e2 = ((fromRational 15) +: fromIntegral 3) :: Expression Scalar C
+  --     e1 / e2  
+  --     @  
   
   -- | Complex division overloading for expressions e1 and e2
   e1 / e2 = ensureSameShape e1 e2 $ e1 * e2 ^ (-1) 
